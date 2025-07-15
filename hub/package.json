@@ -14,7 +14,7 @@
   "license": "MIT",
   "dependencies": {
     "@proxmox-ai-control/shared": "file:../shared",
-    "anthropic": "^0.17.0",
+    "@anthropic-ai/sdk": "^0.56.0",
     "axios": "^1.6.0",
     "cors": "^2.8.5",
     "dotenv": "^16.0.0",

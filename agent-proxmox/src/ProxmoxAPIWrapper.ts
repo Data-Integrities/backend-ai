@@ -327,4 +327,247 @@ export class ProxmoxAPIWrapper {
     const resources = await this.getClusterResources();
     return type ? resources.filter(r => r.type === type) : resources;
   }
+
+  // Container execution methods for agent deployment
+  async execInContainer(
+    node: string,
+    vmid: number,
+    command: string | string[],
+    timeout: number = 30
+  ): Promise<{ exitcode: number; stdout: string; stderr: string }> {
+    try {
+      // Proxmox API expects commands as array
+      const cmdArray = Array.isArray(command) ? command : ['/bin/bash', '-c', command];
+      
+      const response = await this.client.post(`/nodes/${node}/lxc/${vmid}/exec`, {
+        command: cmdArray,
+        timeout
+      });
+
+      // The exec API returns a task UPID, we need to wait for it
+      const upid = response.data.data;
+      const task = await this.waitForTask(node, upid, timeout * 1000);
+      
+      // Get the exec output from the task log
+      const logResponse = await this.client.get(`/nodes/${node}/tasks/${upid}/log`);
+      const logs = logResponse.data.data;
+      
+      // Parse the output from task logs
+      let stdout = '';
+      let stderr = '';
+      let exitcode = 0;
+      
+      logs.forEach((log: any) => {
+        const text = log.t || '';
+        if (text.includes('STDOUT:')) {
+          stdout += text.replace('STDOUT:', '').trim() + '\n';
+        } else if (text.includes('STDERR:')) {
+          stderr += text.replace('STDERR:', '').trim() + '\n';
+        } else if (text.includes('exit status')) {
+          const match = text.match(/exit status (\d+)/);
+          if (match) {
+            exitcode = parseInt(match[1]);
+          }
+        }
+      });
+
+      return { exitcode, stdout: stdout.trim(), stderr: stderr.trim() };
+    } catch (error: any) {
+      this.logger.error(`Failed to execute in container ${vmid}: ${error.message}`);
+      throw error;
+    }
+  }
+
+  // Check if container has required tools installed
+  async checkContainerTools(
+    node: string,
+    vmid: number
+  ): Promise<{ bash: boolean; wget: boolean; curl: boolean; systemd: boolean }> {
+    const tools = {
+      bash: false,
+      wget: false,
+      curl: false,
+      systemd: false
+    };
+
+    try {
+      // Check for bash
+      const bashResult = await this.execInContainer(node, vmid, ['which', 'bash']);
+      tools.bash = bashResult.exitcode === 0;
+
+      // Check for wget
+      const wgetResult = await this.execInContainer(node, vmid, ['which', 'wget']);
+      tools.wget = wgetResult.exitcode === 0;
+
+      // Check for curl
+      const curlResult = await this.execInContainer(node, vmid, ['which', 'curl']);
+      tools.curl = curlResult.exitcode === 0;
+
+      // Check for systemd
+      const systemdResult = await this.execInContainer(node, vmid, ['which', 'systemctl']);
+      tools.systemd = systemdResult.exitcode === 0;
+    } catch (error) {
+      this.logger.warn(`Error checking tools in container ${vmid}: ${error}`);
+    }
+
+    return tools;
+  }
+
+  // Get container OS information
+  async getContainerOSInfo(
+    node: string,
+    vmid: number
+  ): Promise<{ distribution: string; version: string; codename: string }> {
+    try {
+      // Try to read os-release file
+      const osReleaseResult = await this.execInContainer(
+        node,
+        vmid,
+        'cat /etc/os-release 2>/dev/null || cat /usr/lib/os-release 2>/dev/null'
+      );
+
+      if (osReleaseResult.exitcode === 0) {
+        const lines = osReleaseResult.stdout.split('\n');
+        const osInfo: any = {};
+        
+        lines.forEach(line => {
+          const [key, value] = line.split('=');
+          if (key && value) {
+            osInfo[key] = value.replace(/"/g, '');
+          }
+        });
+
+        return {
+          distribution: osInfo.ID || 'unknown',
+          version: osInfo.VERSION_ID || 'unknown',
+          codename: osInfo.VERSION_CODENAME || osInfo.UBUNTU_CODENAME || 'unknown'
+        };
+      }
+
+      // Fallback: try lsb_release
+      const lsbResult = await this.execInContainer(
+        node,
+        vmid,
+        'lsb_release -a 2>/dev/null'
+      );
+
+      if (lsbResult.exitcode === 0) {
+        const lines = lsbResult.stdout.split('\n');
+        const lsbInfo: any = {};
+        
+        lines.forEach(line => {
+          const [key, value] = line.split(':');
+          if (key && value) {
+            lsbInfo[key.trim()] = value.trim();
+          }
+        });
+
+        return {
+          distribution: lsbInfo['Distributor ID']?.toLowerCase() || 'unknown',
+          version: lsbInfo['Release'] || 'unknown',
+          codename: lsbInfo['Codename'] || 'unknown'
+        };
+      }
+
+      return { distribution: 'unknown', version: 'unknown', codename: 'unknown' };
+    } catch (error) {
+      this.logger.error(`Failed to get OS info for container ${vmid}: ${error}`);
+      return { distribution: 'unknown', version: 'unknown', codename: 'unknown' };
+    }
+  }
+
+  // File operations in container
+  async writeFileInContainer(
+    node: string,
+    vmid: number,
+    filepath: string,
+    content: string
+  ): Promise<void> {
+    // Escape content for shell
+    const escapedContent = content
+      .replace(/\\/g, '\\\\')
+      .replace(/"/g, '\\"')
+      .replace(/\$/g, '\\$')
+      .replace(/`/g, '\\`');
+
+    const command = `cat > "${filepath}" << 'EOF'
+${content}
+EOF`;
+
+    const result = await this.execInContainer(node, vmid, command);
+    
+    if (result.exitcode !== 0) {
+      throw new Error(`Failed to write file ${filepath}: ${result.stderr}`);
+    }
+  }
+
+  async readFileInContainer(
+    node: string,
+    vmid: number,
+    filepath: string
+  ): Promise<string> {
+    const result = await this.execInContainer(node, vmid, `cat "${filepath}"`);
+    
+    if (result.exitcode !== 0) {
+      throw new Error(`Failed to read file ${filepath}: ${result.stderr}`);
+    }
+    
+    return result.stdout;
+  }
+
+  // VM execution using QEMU guest agent
+  async execInVM(
+    node: string,
+    vmid: number,
+    command: string,
+    timeout: number = 30
+  ): Promise<{ exitcode: number; stdout: string; stderr: string }> {
+    try {
+      // First check if QEMU guest agent is running
+      const agentStatus = await this.client.post(`/nodes/${node}/qemu/${vmid}/agent/ping`);
+      
+      if (!agentStatus.data.data) {
+        throw new Error('QEMU guest agent not responding. Ensure qemu-guest-agent is installed and running in the VM.');
+      }
+
+      // Execute command via guest agent
+      const response = await this.client.post(`/nodes/${node}/qemu/${vmid}/agent/exec`, {
+        command: command,
+        timeout: timeout
+      });
+
+      const pid = response.data.data.pid;
+
+      // Wait for command to complete and get output
+      let result;
+      const startTime = Date.now();
+      
+      while (Date.now() - startTime < timeout * 1000) {
+        const statusResponse = await this.client.get(
+          `/nodes/${node}/qemu/${vmid}/agent/exec-status?pid=${pid}`
+        );
+        
+        result = statusResponse.data.data;
+        
+        if (result.exited) {
+          break;
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+
+      if (!result || !result.exited) {
+        throw new Error(`Command timed out after ${timeout} seconds`);
+      }
+
+      return {
+        exitcode: result.exitcode || 0,
+        stdout: result['out-data'] ? Buffer.from(result['out-data'], 'base64').toString() : '',
+        stderr: result['err-data'] ? Buffer.from(result['err-data'], 'base64').toString() : ''
+      };
+    } catch (error: any) {
+      this.logger.error(`Failed to execute in VM ${vmid}: ${error.message}`);
+      throw error;
+    }
+  }
 }

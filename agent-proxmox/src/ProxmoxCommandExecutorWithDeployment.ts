@@ -28,7 +28,10 @@ export class ProxmoxCommandExecutor {
       const action = command.action.toLowerCase();
       
       // Self-deployment operations
-      if (action.includes('install') && action.includes('agent')) {
+      if ((action.includes('install') || action.includes('deploy')) && action.includes('agent') && (action.includes('container') || action.includes('vm'))) {
+        // Container/VM agent deployment
+        output = await this.handleDeployAgentToContainerOrVM(command);
+      } else if (action.includes('install') && action.includes('agent')) {
         output = await this.handleInstallAgent(command);
       } else if (action.includes('deploy') && action.includes('agent')) {
         output = await this.handleDeployAgent(command);
@@ -130,6 +133,73 @@ export class ProxmoxCommandExecutor {
     const results = await this.deployment.updateProxmoxPasswordOnAllNodes(newPassword);
     
     return `Password Update Results:\n\n${results.join('\n')}`;
+  }
+
+  private async handleDeployAgentToContainerOrVM(command: ParsedCommand): Promise<string> {
+    const action = command.action.toLowerCase();
+    const isContainer = action.includes('container');
+    const { vmName, vmid, tag, all } = command.parameters;
+
+    // Deploy to all containers/VMs with a specific tag
+    if (tag) {
+      this.logger.info(`Deploying agent to all ${isContainer ? 'containers' : 'VMs'} with tag: ${tag}`);
+      const results = await this.deployment.deployToContainersByTag(tag);
+      return `Agent Deployment Results:\n\n${results.join('\n')}\n\nDeployment completed!`;
+    }
+
+    // Deploy to a specific container/VM
+    if (vmName || vmid) {
+      const identifier = vmName || vmid?.toString();
+      const vm = await this.findVM(identifier!);
+      
+      if (!vm) {
+        throw new Error(`${isContainer ? 'Container' : 'VM'} '${identifier}' not found`);
+      }
+
+      if (isContainer && vm.type !== 'lxc') {
+        throw new Error(`'${vm.name}' is a VM, not a container`);
+      } else if (!isContainer && vm.type !== 'qemu') {
+        throw new Error(`'${vm.name}' is a container, not a VM`);
+      }
+
+      this.logger.info(`Deploying agent to ${vm.type} ${vm.vmid} (${vm.name}) on ${vm.node}`);
+      
+      try {
+        const result = isContainer 
+          ? await this.deployment.deployToContainer(vm.node, vm.vmid)
+          : await this.deployment.deployToVM(vm.node, vm.vmid);
+        
+        return result;
+      } catch (error) {
+        if (error instanceof Error && error.message.includes('QEMU guest agent')) {
+          return `❌ Failed to deploy to VM '${vm.name}': QEMU guest agent not installed or not running.\n\nTo fix this:\n1. Install qemu-guest-agent in the VM: apt install qemu-guest-agent\n2. Enable it in Proxmox VM options\n3. Start the service: systemctl start qemu-guest-agent`;
+        }
+        throw error;
+      }
+    }
+
+    // Deploy to all containers/VMs
+    if (all) {
+      this.logger.info(`Deploying agent to all ${isContainer ? 'containers' : 'VMs'}`);
+      const vms = await this.proxmox.getAllVMs();
+      const targetVMs = vms.filter(vm => isContainer ? vm.type === 'lxc' : vm.type === 'qemu');
+      
+      const results: string[] = [];
+      for (const vm of targetVMs) {
+        try {
+          const result = isContainer 
+            ? await this.deployment.deployToContainer(vm.node, vm.vmid)
+            : await this.deployment.deployToVM(vm.node, vm.vmid);
+          results.push(result);
+        } catch (error) {
+          results.push(`❌ ${vm.type} ${vm.vmid} (${vm.name}): ${error}`);
+        }
+      }
+      
+      return `Agent Deployment Results:\n\n${results.join('\n')}\n\nDeployment completed!`;
+    }
+
+    throw new Error(`Please specify a container/VM name, ID, tag, or use 'all'. Examples:\n- "deploy agent to container nginx"\n- "install agent in VM 102"\n- "deploy agent to all containers tagged production"\n- "install agent in all containers"`);
   }
 
   // VM/Container handlers (existing methods...)

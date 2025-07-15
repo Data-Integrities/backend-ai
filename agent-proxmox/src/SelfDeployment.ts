@@ -388,4 +388,422 @@ echo "To configure Proxmox password: edit /etc/proxmox-ai-agent/agent.env"
 
     return results;
   }
+
+  // Deploy to Container
+  async deployToContainer(
+    node: string,
+    vmid: number,
+    config?: {
+      agentId?: string;
+      hubUrl?: string;
+      installPath?: string;
+    }
+  ): Promise<string> {
+    const {
+      agentId = `linux-agent-ct${vmid}`,
+      hubUrl = process.env.HUB_URL || `ws://${node}:3001`,
+      installPath = '/opt/ai-agent'
+    } = config || {};
+
+    this.logger.info(`Starting deployment to container ${vmid} on node ${node}`);
+
+    try {
+      // 1. Check if container is running
+      const containerStatus = await this.proxmoxAPI.getVMStatus(node, vmid, 'lxc');
+      if (containerStatus.status !== 'running') {
+        throw new Error(`Container ${vmid} is not running`);
+      }
+
+      // 2. Get OS information
+      const osInfo = await this.proxmoxAPI.getContainerOSInfo(node, vmid);
+      this.logger.info(`Container OS: ${osInfo.distribution} ${osInfo.version}`);
+
+      // 3. Check required tools
+      const tools = await this.proxmoxAPI.checkContainerTools(node, vmid);
+      
+      // 4. Install Node.js if needed
+      await this.installNodeInContainer(node, vmid, osInfo, tools);
+
+      // 5. Create agent directory
+      await this.proxmoxAPI.execInContainer(node, vmid, `mkdir -p ${installPath}`);
+      await this.proxmoxAPI.execInContainer(node, vmid, `mkdir -p /etc/ai-agent`);
+      await this.proxmoxAPI.execInContainer(node, vmid, `mkdir -p /var/log/ai-agent`);
+
+      // 6. Deploy agent files
+      await this.deployAgentFilesToContainer(node, vmid, installPath);
+
+      // 7. Create configuration
+      const envConfig = `AGENT_ID=${agentId}
+HUB_URL=${hubUrl}
+LOG_DIR=/var/log/ai-agent
+LOG_LEVEL=info
+NODE_ENV=production
+`;
+      await this.proxmoxAPI.writeFileInContainer(node, vmid, '/etc/ai-agent/agent.env', envConfig);
+
+      // 8. Install dependencies
+      await this.proxmoxAPI.execInContainer(node, vmid, `cd ${installPath} && npm install --production`);
+
+      // 9. Create and enable service
+      await this.createContainerService(node, vmid, installPath, tools.systemd);
+
+      // 10. Start the agent
+      if (tools.systemd) {
+        await this.proxmoxAPI.execInContainer(node, vmid, 'systemctl start ai-agent');
+      } else {
+        // Use supervisor or init script for non-systemd containers
+        await this.createInitScript(node, vmid, installPath);
+      }
+
+      return `✅ Successfully deployed Linux AI agent to container ${vmid} (${containerStatus.name}) with ID: ${agentId}`;
+
+    } catch (error) {
+      this.logger.error(`Deployment to container ${vmid} failed`, error);
+      throw error;
+    }
+  }
+
+  // Deploy to VM
+  async deployToVM(
+    node: string,
+    vmid: number,
+    config?: {
+      agentId?: string;
+      hubUrl?: string;
+      installPath?: string;
+    }
+  ): Promise<string> {
+    const {
+      agentId = `linux-agent-vm${vmid}`,
+      hubUrl = process.env.HUB_URL || `ws://${node}:3001`,
+      installPath = '/opt/ai-agent'
+    } = config || {};
+
+    this.logger.info(`Starting deployment to VM ${vmid} on node ${node}`);
+
+    try {
+      // 1. Check if VM is running and has guest agent
+      const vmStatus = await this.proxmoxAPI.getVMStatus(node, vmid, 'qemu');
+      if (vmStatus.status !== 'running') {
+        throw new Error(`VM ${vmid} is not running`);
+      }
+
+      // 2. Test QEMU guest agent
+      try {
+        await this.proxmoxAPI.execInVM(node, vmid, 'echo "Guest agent test"');
+      } catch (error) {
+        throw new Error(`QEMU guest agent not available. Please install qemu-guest-agent in the VM.`);
+      }
+
+      // 3. Get OS information (similar approach)
+      const osInfoCmd = 'cat /etc/os-release 2>/dev/null || cat /usr/lib/os-release 2>/dev/null';
+      const osResult = await this.proxmoxAPI.execInVM(node, vmid, osInfoCmd);
+      
+      const osInfo = this.parseOSInfo(osResult.stdout);
+      this.logger.info(`VM OS: ${osInfo.distribution} ${osInfo.version}`);
+
+      // 4. Check for required tools and install Node.js
+      await this.installNodeInVM(node, vmid, osInfo);
+
+      // 5. Create directories
+      await this.proxmoxAPI.execInVM(node, vmid, `mkdir -p ${installPath}`);
+      await this.proxmoxAPI.execInVM(node, vmid, `mkdir -p /etc/ai-agent`);
+      await this.proxmoxAPI.execInVM(node, vmid, `mkdir -p /var/log/ai-agent`);
+
+      // 6. Deploy agent files (need to transfer via base64 encoding)
+      await this.deployAgentFilesToVM(node, vmid, installPath);
+
+      // 7. Create configuration
+      const envConfig = `AGENT_ID=${agentId}
+HUB_URL=${hubUrl}
+LOG_DIR=/var/log/ai-agent
+LOG_LEVEL=info
+NODE_ENV=production
+`;
+      await this.writeFileToVM(node, vmid, '/etc/ai-agent/agent.env', envConfig);
+
+      // 8. Install dependencies
+      await this.proxmoxAPI.execInVM(node, vmid, `cd ${installPath} && npm install --production`);
+
+      // 9. Create systemd service
+      await this.createVMService(node, vmid, installPath);
+
+      // 10. Start the agent
+      await this.proxmoxAPI.execInVM(node, vmid, 'systemctl daemon-reload && systemctl enable ai-agent && systemctl start ai-agent');
+
+      return `✅ Successfully deployed Linux AI agent to VM ${vmid} (${vmStatus.name}) with ID: ${agentId}`;
+
+    } catch (error) {
+      this.logger.error(`Deployment to VM ${vmid} failed`, error);
+      throw error;
+    }
+  }
+
+  // Deploy to all containers with specific tag
+  async deployToContainersByTag(tag: string): Promise<string[]> {
+    const containers = await this.proxmoxAPI.getVMsByTag(tag);
+    const results: string[] = [];
+
+    for (const container of containers) {
+      if (container.type !== 'lxc') continue;
+      
+      try {
+        const result = await this.deployToContainer(container.node, container.vmid);
+        results.push(result);
+      } catch (error) {
+        results.push(`❌ Container ${container.vmid} (${container.name}): ${error}`);
+      }
+    }
+
+    return results;
+  }
+
+  // Helper methods for container deployment
+  private async installNodeInContainer(
+    node: string,
+    vmid: number,
+    osInfo: { distribution: string; version: string },
+    tools: { curl: boolean; wget: boolean }
+  ): Promise<void> {
+    // Check if Node.js is already installed
+    const nodeCheck = await this.proxmoxAPI.execInContainer(node, vmid, 'which node');
+    if (nodeCheck.exitcode === 0) {
+      this.logger.info('Node.js already installed in container');
+      return;
+    }
+
+    this.logger.info('Installing Node.js in container...');
+
+    if (osInfo.distribution === 'ubuntu' || osInfo.distribution === 'debian') {
+      // Use NodeSource repository
+      const setupScript = tools.curl 
+        ? 'curl -fsSL https://deb.nodesource.com/setup_20.x | bash -'
+        : 'wget -qO- https://deb.nodesource.com/setup_20.x | bash -';
+      
+      await this.proxmoxAPI.execInContainer(node, vmid, setupScript);
+      await this.proxmoxAPI.execInContainer(node, vmid, 'apt-get install -y nodejs');
+    } else if (osInfo.distribution === 'alpine') {
+      await this.proxmoxAPI.execInContainer(node, vmid, 'apk add --no-cache nodejs npm');
+    } else if (osInfo.distribution === 'centos' || osInfo.distribution === 'rhel') {
+      await this.proxmoxAPI.execInContainer(node, vmid, 'dnf module install -y nodejs:20');
+    }
+  }
+
+  private async deployAgentFilesToContainer(
+    node: string,
+    vmid: number,
+    installPath: string
+  ): Promise<void> {
+    // Read the Linux agent files from the local system
+    const agentPath = path.join(__dirname, '../../agent');
+    
+    // Read and transfer the main agent file
+    const indexContent = await fs.readFile(path.join(agentPath, 'dist/index.js'), 'utf-8');
+    await this.proxmoxAPI.writeFileInContainer(node, vmid, `${installPath}/index.js`, indexContent);
+
+    // Create a minimal package.json
+    const packageJson = {
+      name: "@backend-ai/linux-agent",
+      version: "1.0.0",
+      main: "index.js",
+      dependencies: {
+        "ws": "^8.16.0",
+        "winston": "^3.11.0",
+        "systeminformation": "^5.21.0",
+        "dotenv": "^16.0.0"
+      }
+    };
+    
+    await this.proxmoxAPI.writeFileInContainer(
+      node, 
+      vmid, 
+      `${installPath}/package.json`, 
+      JSON.stringify(packageJson, null, 2)
+    );
+  }
+
+  private async createContainerService(
+    node: string,
+    vmid: number,
+    installPath: string,
+    hasSystemd: boolean
+  ): Promise<void> {
+    if (hasSystemd) {
+      const serviceContent = `[Unit]
+Description=AI Control Linux Agent
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=${installPath}
+EnvironmentFile=/etc/ai-agent/agent.env
+ExecStart=/usr/bin/node ${installPath}/index.js
+Restart=always
+RestartSec=10
+StandardOutput=append:/var/log/ai-agent/agent.log
+StandardError=append:/var/log/ai-agent/agent.error.log
+
+[Install]
+WantedBy=multi-user.target
+`;
+      
+      await this.proxmoxAPI.writeFileInContainer(node, vmid, '/etc/systemd/system/ai-agent.service', serviceContent);
+      await this.proxmoxAPI.execInContainer(node, vmid, 'systemctl daemon-reload');
+      await this.proxmoxAPI.execInContainer(node, vmid, 'systemctl enable ai-agent');
+    }
+  }
+
+  private async createInitScript(
+    node: string,
+    vmid: number,
+    installPath: string
+  ): Promise<void> {
+    // For non-systemd containers, create a simple init script
+    const initScript = `#!/bin/sh
+# AI Agent init script
+case "$1" in
+  start)
+    echo "Starting AI Agent..."
+    cd ${installPath}
+    nohup /usr/bin/node index.js > /var/log/ai-agent/agent.log 2>&1 &
+    echo $! > /var/run/ai-agent.pid
+    ;;
+  stop)
+    echo "Stopping AI Agent..."
+    kill $(cat /var/run/ai-agent.pid)
+    rm /var/run/ai-agent.pid
+    ;;
+  *)
+    echo "Usage: $0 {start|stop}"
+    exit 1
+esac
+`;
+    
+    await this.proxmoxAPI.writeFileInContainer(node, vmid, '/etc/init.d/ai-agent', initScript);
+    await this.proxmoxAPI.execInContainer(node, vmid, 'chmod +x /etc/init.d/ai-agent');
+    await this.proxmoxAPI.execInContainer(node, vmid, '/etc/init.d/ai-agent start');
+  }
+
+  // Helper methods for VM deployment
+  private async installNodeInVM(
+    node: string,
+    vmid: number,
+    osInfo: { distribution: string; version: string }
+  ): Promise<void> {
+    // Check if Node.js is already installed
+    const nodeCheck = await this.proxmoxAPI.execInVM(node, vmid, 'which node');
+    if (nodeCheck.exitcode === 0) {
+      this.logger.info('Node.js already installed in VM');
+      return;
+    }
+
+    this.logger.info('Installing Node.js in VM...');
+
+    if (osInfo.distribution === 'ubuntu' || osInfo.distribution === 'debian') {
+      await this.proxmoxAPI.execInVM(node, vmid, 'curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -');
+      await this.proxmoxAPI.execInVM(node, vmid, 'sudo apt-get install -y nodejs');
+    } else if (osInfo.distribution === 'centos' || osInfo.distribution === 'rhel') {
+      await this.proxmoxAPI.execInVM(node, vmid, 'sudo dnf module install -y nodejs:20');
+    }
+  }
+
+  private async deployAgentFilesToVM(
+    node: string,
+    vmid: number,
+    installPath: string
+  ): Promise<void> {
+    // Similar to container deployment but using execInVM
+    const agentPath = path.join(__dirname, '../../agent');
+    
+    // Read the agent file and encode it for transfer
+    const indexContent = await fs.readFile(path.join(agentPath, 'dist/index.js'), 'utf-8');
+    const encodedContent = Buffer.from(indexContent).toString('base64');
+    
+    // Transfer via base64 decoding
+    await this.proxmoxAPI.execInVM(
+      node, 
+      vmid, 
+      `echo "${encodedContent}" | base64 -d > ${installPath}/index.js`
+    );
+
+    // Create package.json
+    const packageJson = {
+      name: "@backend-ai/linux-agent",
+      version: "1.0.0",
+      main: "index.js",
+      dependencies: {
+        "ws": "^8.16.0",
+        "winston": "^3.11.0",
+        "systeminformation": "^5.21.0",
+        "dotenv": "^16.0.0"
+      }
+    };
+    
+    await this.writeFileToVM(
+      node,
+      vmid,
+      `${installPath}/package.json`,
+      JSON.stringify(packageJson, null, 2)
+    );
+  }
+
+  private async createVMService(
+    node: string,
+    vmid: number,
+    installPath: string
+  ): Promise<void> {
+    const serviceContent = `[Unit]
+Description=AI Control Linux Agent
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=${installPath}
+EnvironmentFile=/etc/ai-agent/agent.env
+ExecStart=/usr/bin/node ${installPath}/index.js
+Restart=always
+RestartSec=10
+StandardOutput=append:/var/log/ai-agent/agent.log
+StandardError=append:/var/log/ai-agent/agent.error.log
+
+[Install]
+WantedBy=multi-user.target
+`;
+    
+    await this.writeFileToVM(node, vmid, '/etc/systemd/system/ai-agent.service', serviceContent);
+  }
+
+  private async writeFileToVM(
+    node: string,
+    vmid: number,
+    filepath: string,
+    content: string
+  ): Promise<void> {
+    // For VMs, we need to be more careful with escaping
+    const encodedContent = Buffer.from(content).toString('base64');
+    await this.proxmoxAPI.execInVM(
+      node,
+      vmid,
+      `echo "${encodedContent}" | base64 -d > ${filepath}`
+    );
+  }
+
+  private parseOSInfo(osReleaseContent: string): { distribution: string; version: string } {
+    const lines = osReleaseContent.split('\n');
+    const osInfo: any = {};
+    
+    lines.forEach(line => {
+      const [key, value] = line.split('=');
+      if (key && value) {
+        osInfo[key] = value.replace(/"/g, '');
+      }
+    });
+
+    return {
+      distribution: osInfo.ID || 'unknown',
+      version: osInfo.VERSION_ID || 'unknown'
+    };
+  }
 }

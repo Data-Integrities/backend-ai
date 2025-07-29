@@ -1,12 +1,21 @@
 {
-  "extends": "../shared/tsconfig.json",
   "compilerOptions": {
+    "target": "es2020",
+    "module": "commonjs",
+    "lib": ["es2020"],
+    "types": ["node", "express"],
+    "typeRoots": ["./node_modules/@types"],
     "outDir": "./dist",
-    "rootDir": "./src"
+    "rootDir": "./",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true
   },
-  "references": [
-    { "path": "../shared" }
-  ],
-  "include": ["src/**/*"],
+  "include": ["api/**/*", "gui/**/*"],
   "exclude": ["node_modules", "dist"]
 }

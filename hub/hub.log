@@ -1,0 +1,21 @@
+WebSocket server listening on port 3001
+
+🚀 Proxmox AI Control Hub Started
+====================================
+API Server: http://localhost:8080
+WebSocket:  ws://localhost:3001
+Agents:     0 connected
+
+Available Endpoints:
+- GET  /api/agents           - List all agents
+- POST /api/command          - Execute natural language command
+- GET  /api/command/:id/results - Get command results
+- POST /api/suggestions      - Get command suggestions
+
+Example Commands:
+- "Check if nginx is running on web-server"
+- "Show error logs from the API server"
+- "Restart MySQL on database-server"
+- "What domains is nginx routing?"
+  
+Loaded 4 agents from config

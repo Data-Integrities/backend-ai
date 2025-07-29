@@ -1,0 +1,2955 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="cache-control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="pragma" content="no-cache">
+    <meta http-equiv="expires" content="0">
+    <title>Infrastructure AI Hub (v2.2)</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --bg-primary: #1a1a1a;
+            --bg-secondary: #2d2d2d;
+            --bg-tertiary: #3a3a3a;
+            --text-primary: #ffffff;
+            --text-secondary: #b0b0b0;
+            --accent-primary: #3498db;
+            --accent-hover: #2980b9;
+            --border-color: #444;
+            --success: #27ae60;
+            --error: #e74c3c;
+            --warning: #f39c12;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        .app-container {
+            display: flex;
+            height: calc(100vh - 22px); /* Account for status bar */
+            margin-bottom: 22px;
+        }
+        
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .sidebar-header h2 {
+            font-size: 18px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .agents-section {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+        
+        .agents-section h3 {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .hamburger-menu {
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+            transition: background 0.2s;
+            position: relative;
+        }
+        
+        .hamburger-menu:hover {
+            background: var(--bg-tertiary);
+        }
+        
+        .hamburger-icon {
+            width: 18px;
+            height: 14px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        
+        .hamburger-line {
+            width: 100%;
+            height: 2px;
+            background: var(--text-secondary);
+            border-radius: 1px;
+        }
+        
+        .dropdown-menu {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: 4px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 4px;
+            min-width: 150px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            z-index: 1000;
+            display: none;
+        }
+        
+        .dropdown-menu.open {
+            display: block;
+        }
+        
+        .dropdown-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background 0.2s;
+            white-space: nowrap;
+            font-size: 13px;
+        }
+        
+        .dropdown-item:hover {
+            background: var(--bg-secondary);
+        }
+        
+        .agent-item {
+            padding: 12px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+        
+        .agent-item:hover {
+            background: #404040;
+            border-color: var(--accent-primary);
+        }
+        
+        .agent-item.selected {
+            background: rgba(52, 152, 219, 0.2);
+            border-color: var(--accent-primary);
+        }
+        
+        .agent-status {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-online { 
+            background: #00ff00;
+            box-shadow: 0 0 4px #00ff00;
+        }
+        .status-offline { 
+            background: #ff0000;
+            box-shadow: 0 0 4px #ff0000;
+        }
+        
+        .agent-status-container {
+            display: inline-flex;
+            gap: 4px;
+            margin-right: 8px;
+            align-items: center;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            position: relative;
+        }
+        
+        .status-indicator.manager-status {
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .status-warning { 
+            background: #ff8800;
+            box-shadow: 0 0 4px #ff8800;
+        }
+        
+        .agent-name {
+            font-weight: 500;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .agent-version {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        
+        .agent-ip {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-left: auto;
+        }
+        
+        .agent-details {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        
+        .agent-versions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+        
+        .version-left {
+            text-align: left;
+        }
+        
+        .version-right {
+            text-align: right;
+        }
+        
+        /* Main Content Area */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-primary);
+        }
+        
+        /* Tab Bar */
+        .tab-bar {
+            display: flex;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            min-height: 48px;
+            align-items: flex-end;
+            padding: 0 10px;
+            gap: 4px;
+        }
+        
+        .tab {
+            display: flex;
+            align-items: center;
+            padding: 10px 16px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-bottom: none;
+            border-radius: 8px 8px 0 0;
+            cursor: pointer;
+            transition: all 0.2s;
+            max-width: 200px;
+            position: relative;
+            bottom: -1px;
+        }
+        
+        .tab:hover {
+            background: #404040;
+        }
+        
+        .tab.active {
+            background: var(--bg-primary);
+            border-color: var(--border-color);
+            color: var(--text-primary);
+        }
+        
+        .tab-title {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-size: 14px;
+            margin-right: 8px;
+        }
+        
+        .tab-close {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+        
+        .tab-close:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .tab.new-chat {
+            background: transparent;
+            border: 1px dashed var(--border-color);
+            color: var(--text-secondary);
+        }
+        
+        .tab.new-chat:hover {
+            border-color: var(--accent-primary);
+            color: var(--accent-primary);
+        }
+        
+        /* Chat Area */
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 70px); /* 48px header + 22px status bar */
+        }
+        
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            scroll-behavior: smooth;
+        }
+        
+        /* New Chat Form */
+        .new-chat-form {
+            width: 90%;
+            max-width: none;
+            margin: 100px auto;
+            text-align: center;
+        }
+        
+        .new-chat-form h2 {
+            font-size: 32px;
+            margin-bottom: 40px;
+            font-weight: 300;
+        }
+        
+        .form-group {
+            margin-bottom: 24px;
+            text-align: left;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+        
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 16px;
+            transition: all 0.2s;
+        }
+        
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            background: var(--bg-tertiary);
+        }
+        
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        
+        .start-task-btn {
+            background: var(--accent-primary);
+            color: white;
+            border: none;
+            padding: 12px 32px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .start-task-btn:hover:not(:disabled) {
+            background: var(--accent-hover);
+            transform: translateY(-1px);
+        }
+        
+        .start-task-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        /* Chat Messages */
+        .message {
+            margin-bottom: 16px;
+            display: flex;
+            align-items: flex-start;
+            animation: fadeIn 0.3s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .message.user {
+            flex-direction: row-reverse;
+        }
+        
+        .message-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            margin: 0 12px;
+            flex-shrink: 0;
+        }
+        
+        .message.user .message-avatar {
+            background: var(--accent-primary);
+        }
+        
+        .message.ai .message-avatar {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+        }
+        
+        .message-content {
+            max-width: 70%;
+            background: var(--bg-secondary);
+            padding: 12px 16px;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .message.user .message-content {
+            background: var(--accent-primary);
+            border-color: transparent;
+        }
+        
+        .message-time {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+        
+        .message.user .message-time {
+            text-align: right;
+            color: rgba(255, 255, 255, 0.7);
+        }
+        
+        /* Agent routing indicator */
+        .agent-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--bg-tertiary);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            margin-top: 8px;
+            color: var(--text-secondary);
+        }
+        
+        /* Input Area */
+        .chat-input-container {
+            padding: 20px;
+            border-top: 1px solid var(--border-color);
+            background: var(--bg-secondary);
+        }
+        
+        .input-wrapper {
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+        }
+        
+        .chat-input {
+            flex: 1;
+            min-height: 44px;
+            max-height: 120px;
+            padding: 10px 16px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 16px;
+            resize: none;
+            outline: none;
+            transition: all 0.2s;
+        }
+        
+        .chat-input:focus {
+            border-color: var(--accent-primary);
+            background: #404040;
+        }
+        
+        .send-button {
+            background: var(--accent-primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .send-button:hover:not(:disabled) {
+            background: var(--accent-hover);
+        }
+        
+        .send-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        /* Console Window */
+        .console-window {
+            position: fixed;
+            bottom: 22px; /* Above status bar */
+            left: 0;
+            right: 0;
+            height: 25vh; /* 1/4 of viewport height */
+            background: #1e1e1e;
+            border-top: 1px solid var(--border-color);
+            transform: translateY(100%);
+            transition: transform 0.3s ease;
+            z-index: 999;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .console-window.visible {
+            transform: translateY(0);
+        }
+        
+        .console-header {
+            background: #2d2d30;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 12px;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 12px;
+            color: var(--text-primary);
+        }
+        
+        .console-clear-button {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 3px;
+            transition: background 0.2s, color 0.2s;
+        }
+        
+        .console-clear-button:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+        }
+        
+        .console-clear-button:active {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .console-content {
+            flex: 1;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 8px 12px;
+            overflow-y: auto;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        
+        .console-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+        }
+        
+        .console-table th {
+            background: #2d2d30;
+            color: #cccccc;
+            padding: 6px 8px;
+            text-align: left;
+            border-bottom: 1px solid #3e3e42;
+            font-weight: 500;
+        }
+        
+        .console-table td {
+            padding: 4px 8px;
+            border-bottom: 1px solid #2d2d30;
+            vertical-align: top;
+        }
+        
+        .console-table tr:hover {
+            background: #2a2d2e;
+        }
+        
+        .console-row-child {
+            padding-left: 20px;
+            opacity: 0.8;
+        }
+        
+        .console-row-child::before {
+            content: "↳ ";
+            margin-right: 4px;
+            opacity: 0.6;
+        }
+        
+        .status-polling {
+            color: #ffcc02;
+        }
+        
+        .status-completed {
+            color: #89d185;
+        }
+        
+        .status-failed {
+            color: #f85149;
+        }
+        
+        /* Status Bar - VSCode Style */
+        .status-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 22px;
+            background: #007ACC;
+            display: flex;
+            align-items: center;
+            z-index: 1000;
+            font-size: 12px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+        
+        .status-segment {
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            height: 100%;
+            color: rgba(255, 255, 255, 0.8);
+            cursor: pointer;
+            transition: background-color 0.1s;
+        }
+        
+        .status-segment:hover {
+            background-color: rgba(255, 255, 255, 0.12);
+        }
+        
+        .status-segment.clickable:active {
+            background-color: rgba(255, 255, 255, 0.18);
+        }
+        
+        .status-segment:not(:last-child)::after {
+            content: '';
+            position: absolute;
+            right: 0;
+            top: 2px;
+            bottom: 2px;
+            width: 1px;
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+        
+        .status-segment {
+            position: relative;
+        }
+        
+        .status-segment.right {
+            margin-left: auto;
+        }
+        
+        .console-toggle {
+            cursor: pointer;
+            padding: 0 8px;
+            height: 22px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            transition: background 0.2s;
+        }
+        
+        .console-toggle:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .console-arrow {
+            font-size: 10px;
+            transition: transform 0.3s ease;
+        }
+        
+        .console-arrow.up {
+            transform: rotate(180deg);
+        }
+        
+        .status-icon {
+            margin-right: 4px;
+            font-size: 14px;
+        }
+        
+        .status-value {
+            color: white;
+            font-weight: normal;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+        }
+        
+        .modal.open {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-content {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 24px;
+            padding: 4px;
+        }
+        
+        .modal-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+        
+        .history-item {
+            padding: 16px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+        
+        .history-item:hover {
+            border-color: var(--accent-primary);
+        }
+        
+        .history-title {
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+        
+        .history-preview {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+        }
+        
+        .history-meta {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        
+        /* Loading states */
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 8px;
+        }
+        
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--text-secondary);
+            border-radius: 50%;
+            animation: typing 1.4s infinite;
+        }
+        
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+        
+        @keyframes typing {
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+            30% { transform: translateY(-10px); opacity: 1; }
+        }
+        
+        /* Quick actions */
+        .quick-actions {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+        
+        .quick-action {
+            padding: 6px 12px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .quick-action:hover {
+            border-color: var(--accent-primary);
+            color: var(--accent-primary);
+        }
+        
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 10000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+        }
+        
+        .modal-content {
+            background-color: var(--bg-secondary);
+            margin: 5% auto;
+            padding: 0;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+        }
+        
+        .modal-header {
+            background: var(--bg-primary);
+            padding: 12px 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-header h2 {
+            margin: 0;
+            font-size: 18px;
+            color: var(--text-primary);
+        }
+        
+        .modal-body {
+            padding: 20px;
+            color: var(--text-primary);
+        }
+        
+        .modal-body pre {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 12px;
+            overflow-x: auto;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 12px;
+            line-height: 1.4;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        .modal-body h3 {
+            margin-top: 0;
+            color: var(--text-primary);
+        }
+        
+        .modal-body h4 {
+            margin-top: 16px;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+        }
+        
+        .close-button {
+            color: var(--text-muted);
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            line-height: 1;
+        }
+        
+        .close-button:hover {
+            color: var(--text-primary);
+        }
+        
+        .log-link {
+            text-decoration: none;
+            margin-left: 8px;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+        
+        .log-link:hover {
+            opacity: 1;
+        }
+        
+        .log-section {
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 15px;
+        }
+        
+        .log-section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+        
+        .log-section h4 {
+            color: var(--accent-primary);
+            font-size: 14px;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+        
+        .modal-body code {
+            background: var(--bg-primary);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 12px;
+            color: var(--accent-primary);
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2>🚀 AI Control Hub</h2>
+            </div>
+            
+            <div class="agents-section">
+                <h3>
+                    Connected Agents
+                    <div class="hamburger-menu" onclick="toggleAgentMenu(event)">
+                        <div class="hamburger-icon">
+                            <div class="hamburger-line"></div>
+                            <div class="hamburger-line"></div>
+                            <div class="hamburger-line"></div>
+                        </div>
+                        <div class="dropdown-menu" id="agent-menu">
+                            <div class="dropdown-item" onclick="console.log('Start All clicked'); startAllAgents()">Start All Agents</div>
+                            <div class="dropdown-item" onclick="stopAllAgents()">Stop All Agents</div>
+                        </div>
+                    </div>
+                </h3>
+                <div id="agents-list">
+                    <!-- Agents will be populated here -->
+                </div>
+            </div>
+            
+        </div>
+        
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Tab Bar -->
+            <div class="tab-bar" id="tab-bar">
+                <div class="tab new-chat active" data-tab-id="new" onclick="switchTab('new')">
+                    <span class="tab-title">+ New Chat</span>
+                </div>
+            </div>
+            
+            <!-- Chat Containers -->
+            <div id="chat-containers">
+                <!-- New Chat Container -->
+                <div class="chat-container" data-tab-id="new">
+                    <div class="new-chat-form">
+                        <h2>Start a New Task</h2>
+                        <form onsubmit="startNewTask(event)">
+                            <div class="form-group">
+                                <label for="task-title">Task Title</label>
+                                <input 
+                                    type="text" 
+                                    id="task-title" 
+                                    placeholder="e.g., Setup Linux Container, Configure SSL"
+                                    required
+                                />
+                            </div>
+                            <div class="form-group">
+                                <label for="task-command">What would you like to do?</label>
+                                <textarea 
+                                    id="task-command" 
+                                    placeholder="Describe your task in natural language..."
+                                    required
+                                    onkeydown="handleFormKeydown(event)"
+                                ></textarea>
+                            </div>
+                            <button type="submit" class="start-task-btn">
+                                Start Task
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Console Window -->
+    <div class="console-window" id="console-window">
+        <div class="console-header">
+            <div style="display: flex; align-items: center;">
+                <span>Console</span>
+                <button class="console-clear-button" onclick="clearConsoleContent()" title="Clear Console" style="margin-left: 15px;">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <!-- 4 horizontal lines -->
+                        <path d="M2 3h12v1H2zM2 5h12v1H2zM2 7h12v1H2zM2 9h12v1H2z"/>
+                        <!-- X in bottom right -->
+                        <path d="M11.854 11.146a.5.5 0 010 .708l-1 1a.5.5 0 01-.708 0L9 11.707l-1.146 1.147a.5.5 0 01-.708 0l-1-1a.5.5 0 010-.708L7.293 10 6.146 8.854a.5.5 0 010-.708l1-1a.5.5 0 01.708 0L9 8.293l1.146-1.147a.5.5 0 01.708 0l1 1a.5.5 0 010 .708L10.707 10l1.147 1.146z" transform="translate(2, 2) scale(0.8)"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <div class="console-content" id="console-content">
+            <table class="console-table" id="console-table">
+                <thead>
+                    <tr>
+                        <th>Start</th>
+                        <th>Agent</th>
+                        <th>Command</th>
+                        <th>Completion DT</th>
+                        <th>Status</th>
+                        <th>View Log</th>
+                    </tr>
+                </thead>
+                <tbody id="console-table-body">
+                    <!-- Command rows will be added here -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Status Bar -->
+    <div class="status-bar">
+        <div class="status-segment">
+            <span class="status-icon">🤖</span>
+            <span id="agent-count">0/0</span>
+        </div>
+        <div class="status-segment">
+            <span class="status-icon">📡</span>
+            <span id="connection-status">Connected</span>
+        </div>
+        <div class="status-segment">
+            <span>Hub v<span id="hub-version">2.0.9</span></span>
+        </div>
+        <div class="console-toggle" onclick="toggleConsole()">
+            <span>Console</span>
+            <span class="console-arrow" id="console-arrow">▲</span>
+        </div>
+        <div class="status-segment right">
+            <span id="last-update">Never</span>
+        </div>
+    </div>
+    
+    <!-- History Modal -->
+    <div id="history-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Chat History</h2>
+                <button class="modal-close" onclick="closeHistoryModal()">×</button>
+            </div>
+            <div class="modal-body" id="history-list">
+                <!-- History items will be populated here -->
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const API_BASE = window.location.origin + '/api';
+        let selectedAgents = [];
+        let activeTabId = 'new';
+        let tabs = new Map(); // tabId -> { title, messages, agentInfo }
+        let chatHistory = []; // Persistent storage of all chats
+        const MAX_TABS = 5;
+        
+        // Tab management
+        function generateTabId() {
+            return 'tab-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+        }
+        
+        function createTab(title, initialMessage) {
+            const tabId = generateTabId();
+            
+            // Check if we need to close oldest tab
+            if (tabs.size >= MAX_TABS) {
+                const oldestTab = Array.from(tabs.keys())[0];
+                closeTab(oldestTab);
+            }
+            
+            // Create tab data
+            tabs.set(tabId, {
+                title: title,
+                messages: [],
+                created: new Date()
+            });
+            
+            // Create tab element
+            const tabBar = document.getElementById('tab-bar');
+            const newTab = document.createElement('div');
+            newTab.className = 'tab';
+            newTab.dataset.tabId = tabId;
+            newTab.innerHTML = `
+                <span class="tab-title">${title}</span>
+                <span class="tab-close" onclick="event.stopPropagation(); closeTab('${tabId}')">×</span>
+            `;
+            newTab.onclick = () => switchTab(tabId);
+            
+            // Insert before the "+ New Chat" tab
+            const newChatTab = tabBar.querySelector('.new-chat');
+            tabBar.insertBefore(newTab, newChatTab);
+            
+            // Create chat container
+            const container = document.createElement('div');
+            container.className = 'chat-container';
+            container.dataset.tabId = tabId;
+            container.innerHTML = `
+                <div class="chat-messages" id="messages-${tabId}"></div>
+                <div class="chat-input-container">
+                    <div class="quick-actions">
+                        <div class="quick-action" onclick="quickAction('Check status', '${tabId}')">Check status</div>
+                        <div class="quick-action" onclick="quickAction('Show logs', '${tabId}')">Show logs</div>
+                        <div class="quick-action" onclick="quickAction('List services', '${tabId}')">List services</div>
+                    </div>
+                    <div class="input-wrapper">
+                        <textarea 
+                            id="input-${tabId}"
+                            class="chat-input" 
+                            placeholder="Continue the conversation..."
+                            rows="1"
+                            onkeydown="handleInputKeydown(event, '${tabId}')"
+                        ></textarea>
+                        <button class="send-button" onclick="sendMessage('${tabId}')">
+                            Send →
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('chat-containers').appendChild(container);
+            
+            // Switch to new tab
+            switchTab(tabId);
+            
+            // Add initial message if provided
+            if (initialMessage) {
+                sendMessage(tabId, initialMessage);
+            }
+            
+            return tabId;
+        }
+        
+        function switchTab(tabId) {
+            // Update active tab state
+            activeTabId = tabId;
+            
+            // Update tab styling
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.toggle('active', tab.dataset.tabId === tabId);
+            });
+            
+            // Show/hide chat containers
+            document.querySelectorAll('.chat-container').forEach(container => {
+                container.style.display = container.dataset.tabId === tabId ? 'flex' : 'none';
+            });
+            
+            // Focus input if not new chat tab
+            if (tabId !== 'new') {
+                setTimeout(() => {
+                    const input = document.getElementById(`input-${tabId}`);
+                    if (input) input.focus();
+                }, 100);
+            }
+        }
+        
+        function closeTab(tabId) {
+            if (!tabs.has(tabId)) return;
+            
+            // Save to history
+            const tabData = tabs.get(tabId);
+            chatHistory.push({
+                id: tabId,
+                title: tabData.title,
+                messages: tabData.messages,
+                created: tabData.created,
+                closed: new Date()
+            });
+            
+            // Remove tab
+            tabs.delete(tabId);
+            
+            // Remove DOM elements
+            document.querySelector(`[data-tab-id="${tabId}"]`).remove();
+            document.querySelector(`.chat-container[data-tab-id="${tabId}"]`).remove();
+            
+            // Switch to new chat if this was active
+            if (activeTabId === tabId) {
+                switchTab('new');
+            }
+            
+            // Save history to localStorage
+            saveHistory();
+        }
+        
+        // Message handling
+        function addMessage(tabId, content, isUser = false, agentInfo = null) {
+            const container = document.getElementById(`messages-${tabId}`);
+            if (!container) return;
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user' : 'ai'}`;
+            
+            const timestamp = formatTime();
+            
+            messageDiv.innerHTML = `
+                <div class="message-avatar">${isUser ? '👤' : '🤖'}</div>
+                <div>
+                    <div class="message-content">
+                        ${content}
+                        ${agentInfo ? `<div class="agent-indicator">→ ${agentInfo}</div>` : ''}
+                    </div>
+                    <div class="message-time">${timestamp}</div>
+                </div>
+            `;
+            
+            container.appendChild(messageDiv);
+            container.scrollTop = container.scrollHeight;
+            
+            // Update tab data
+            if (tabs.has(tabId)) {
+                tabs.get(tabId).messages.push({
+                    role: isUser ? 'user' : 'assistant',
+                    content: content,
+                    agentInfo: agentInfo,
+                    timestamp: new Date()
+                });
+            }
+        }
+        
+        // New task form handling
+        async function startNewTask(event) {
+            event.preventDefault();
+            
+            const title = document.getElementById('task-title').value;
+            const command = document.getElementById('task-command').value;
+            
+            if (!title || !command) return;
+            
+            // Create new tab
+            const tabId = createTab(title);
+            
+            // Clear form
+            document.getElementById('task-title').value = '';
+            document.getElementById('task-command').value = '';
+            
+            // Send initial message
+            sendMessage(tabId, command);
+        }
+        
+        // Send message
+        async function sendMessage(tabId, messageText = null) {
+            const input = document.getElementById(`input-${tabId}`);
+            const message = messageText || (input ? input.value.trim() : '');
+            
+            if (!message) return;
+            
+            // Add user message
+            addMessage(tabId, message, true);
+            
+            // Clear input
+            if (input) {
+                input.value = '';
+                input.style.height = 'auto';
+            }
+            
+            // Show typing indicator
+            showTypingIndicator(tabId);
+            
+            try {
+                // Get conversation history for this tab
+                const tabData = tabs.get(tabId);
+                const conversationHistory = tabData ? tabData.messages : [];
+                
+                const response = await fetch(`${API_BASE}/command`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        command: message,
+                        targetAgents: selectedAgents.length > 0 ? selectedAgents : undefined,
+                        conversationHistory: conversationHistory
+                    })
+                });
+                
+                const data = await response.json();
+                hideTypingIndicator(tabId);
+                
+                if (data.requiresConfirmation) {
+                    // Handle confirmation
+                    const confirmHtml = `
+                        <p><strong>⚠️ Confirmation Required</strong></p>
+                        <p>Risk Level: <span class="risk-${data.risk}">${data.risk.toUpperCase()}</span></p>
+                        <p>Action: ${data.interpretation}</p>
+                        <p>Target Agents: ${data.targetAgents.join(', ')}</p>
+                        <div style="margin-top: 12px;">
+                            <button class="send-button" style="margin-right: 8px;" onclick="confirmCommand('${tabId}', '${data.request}')">
+                                Proceed
+                            </button>
+                            <button class="send-button" style="background: var(--bg-tertiary);" onclick="cancelCommand('${tabId}')">
+                                Cancel
+                            </button>
+                        </div>
+                    `;
+                    addMessage(tabId, confirmHtml, false);
+                } else if (data.success) {
+                    const agentInfo = data.targetAgents ? `Sending to ${data.targetAgents.join(', ')}` : null;
+                    addMessage(tabId, 'Processing your command...', false, agentInfo);
+                    
+                    // Poll for results
+                    setTimeout(() => checkResults(tabId, data.requestId), 2000);
+                } else {
+                    addMessage(tabId, `Error: ${data.error}`, false);
+                }
+            } catch (error) {
+                hideTypingIndicator(tabId);
+                addMessage(tabId, `Error: ${error.message}`, false);
+            }
+        }
+        
+        // Typing indicator
+        function showTypingIndicator(tabId) {
+            const container = document.getElementById(`messages-${tabId}`);
+            if (!container) return;
+            
+            const indicator = document.createElement('div');
+            indicator.className = 'message ai';
+            indicator.id = `typing-${tabId}`;
+            indicator.innerHTML = `
+                <div class="message-avatar">🤖</div>
+                <div class="message-content">
+                    <div class="typing-indicator">
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                    </div>
+                </div>
+            `;
+            container.appendChild(indicator);
+            container.scrollTop = container.scrollHeight;
+        }
+        
+        function hideTypingIndicator(tabId) {
+            const indicator = document.getElementById(`typing-${tabId}`);
+            if (indicator) indicator.remove();
+        }
+        
+        // Check command results
+        async function checkResults(tabId, requestId) {
+            try {
+                const response = await fetch(`${API_BASE}/command/${requestId}/results`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    let resultHtml = `<p><strong>Summary:</strong> ${data.summary.successful}/${data.summary.total} successful</p>`;
+                    resultHtml += `<p><strong>Analysis:</strong> ${data.analysis}</p>`;
+                    
+                    if (data.results && data.results.length > 0) {
+                        resultHtml += '<div style="margin-top: 12px;">';
+                        data.results.forEach(result => {
+                            resultHtml += `<div style="margin-bottom: 8px; padding: 8px; background: ${result.success ? 'rgba(39, 174, 96, 0.1)' : 'rgba(231, 76, 60, 0.1)'}; border-radius: 4px;">`;
+                            resultHtml += `<strong>${result.agentId}</strong>: ${result.success ? '✅ Success' : '❌ Failed'}<br>`;
+                            if (result.output || result.error) {
+                                resultHtml += `<pre style="margin-top: 4px; background: rgba(0,0,0,0.2); padding: 8px; border-radius: 4px; font-size: 13px;">${result.output || result.error}</pre>`;
+                            }
+                            resultHtml += '</div>';
+                        });
+                        resultHtml += '</div>';
+                    }
+                    
+                    addMessage(tabId, resultHtml, false);
+                } else {
+                    if (data.error === 'No results found') {
+                        setTimeout(() => checkResults(tabId, requestId), 2000);
+                    } else {
+                        addMessage(tabId, `Error: ${data.error}`, false);
+                    }
+                }
+            } catch (error) {
+                addMessage(tabId, 'Failed to retrieve results.', false);
+            }
+        }
+        
+        // Command confirmation handlers
+        window.confirmCommand = async function(tabId, request) {
+            showTypingIndicator(tabId);
+            
+            try {
+                const response = await fetch(`${API_BASE}/command/confirm`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ request })
+                });
+                
+                const data = await response.json();
+                hideTypingIndicator(tabId);
+                
+                addMessage(tabId, 'Command confirmed and sent!', false);
+                setTimeout(() => checkResults(tabId, data.requestId), 2000);
+            } catch (error) {
+                hideTypingIndicator(tabId);
+                addMessage(tabId, `Error: ${error.message}`, false);
+            }
+        };
+        
+        window.cancelCommand = function(tabId) {
+            addMessage(tabId, 'Command cancelled.', false);
+        };
+        
+        // Quick actions
+        function quickAction(action, tabId) {
+            const input = document.getElementById(`input-${tabId}`);
+            if (input) {
+                input.value = action;
+                input.focus();
+            }
+        }
+        
+        // Input handling
+        function handleInputKeydown(event, tabId) {
+            const input = event.target;
+            
+            // Auto-resize
+            input.style.height = 'auto';
+            input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+            
+            // Send on Enter, new line on Shift+Enter
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage(tabId);
+            }
+        }
+        
+        // History modal
+        function openHistoryModal() {
+            const modal = document.getElementById('history-modal');
+            const historyList = document.getElementById('history-list');
+            
+            // Populate history
+            historyList.innerHTML = '';
+            
+            if (chatHistory.length === 0) {
+                historyList.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">No chat history yet</p>';
+            } else {
+                chatHistory.forEach(chat => {
+                    const firstMessage = chat.messages.find(m => m.role === 'user');
+                    const historyItem = document.createElement('div');
+                    historyItem.className = 'history-item';
+                    historyItem.innerHTML = `
+                        <div class="history-title">${chat.title}</div>
+                        <div class="history-preview">${firstMessage ? firstMessage.content.substring(0, 100) + '...' : 'No messages'}</div>
+                        <div class="history-meta">
+                            Created: ${formatDate(chat.created)} | 
+                            Messages: ${chat.messages.length}
+                        </div>
+                    `;
+                    historyItem.onclick = () => reopenChat(chat);
+                    historyList.appendChild(historyItem);
+                });
+            }
+            
+            modal.classList.add('open');
+        }
+        
+        function closeHistoryModal() {
+            document.getElementById('history-modal').classList.remove('open');
+        }
+        
+        function reopenChat(chat) {
+            closeHistoryModal();
+            
+            // Create new tab with historical data
+            const tabId = createTab(chat.title);
+            
+            // Restore messages
+            const tabData = tabs.get(tabId);
+            tabData.messages = [...chat.messages];
+            
+            // Display all messages
+            chat.messages.forEach(msg => {
+                addMessage(tabId, msg.content, msg.role === 'user', msg.agentInfo);
+            });
+        }
+        
+        // Agent management
+        async function loadAgents() {
+            try {
+                const response = await fetch(`${API_BASE}/agents`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                
+                const agentsList = document.getElementById('agents-list');
+                agentsList.innerHTML = '';
+                
+                // Update status bar
+                const onlineCount = data.agents.filter(a => a.isOnline).length;
+                document.getElementById('agent-count').textContent = `${onlineCount}/${data.agents.length}`;
+                document.getElementById('last-update').textContent = formatTime(new Date());
+                
+                if (data.agents.length === 0) {
+                    agentsList.innerHTML = '<p style="color: var(--text-secondary); text-align: center;">No agents configured</p>';
+                    return;
+                }
+                
+                data.agents.forEach(agent => {
+                    const div = document.createElement('div');
+                    div.className = 'agent-item';
+                    if (selectedAgents.includes(agent.name)) {
+                        div.classList.add('selected');
+                    }
+                    
+                    // Format version display
+                    let agentVersion = agent.version || 'unknown';
+                    let managerVersion = agent.managerVersion || 'unknown';
+                    
+                    // Determine statuses
+                    const agentOnline = agent.isOnline;
+                    // Manager is considered online if we have a valid version string
+                    // If managerVersion is undefined, it means the hub couldn't fetch it, but manager might still be running
+                    // Only consider it offline if explicitly set to 'unknown' or 'offline'
+                    const managerOnline = managerVersion === undefined || (managerVersion !== 'unknown' && managerVersion !== 'offline');
+                    
+                    // Determine overall status color
+                    let statusClass = 'offline';
+                    if (agentOnline && managerOnline) {
+                        statusClass = 'online';
+                    } else if (agentOnline || managerOnline) {
+                        statusClass = 'warning';
+                    }
+                    
+                    div.innerHTML = `
+                        <div class="agent-name">
+                            <div>
+                                <span class="agent-status-container" title="Agent: ${agentOnline ? 'online' : 'offline'}, Manager: ${managerOnline ? 'online' : 'offline'}">
+                                    <span class="status-indicator status-${agentOnline ? 'online' : 'offline'}" title="Agent"></span>
+                                    <span class="status-indicator manager-status status-${managerOnline ? 'online' : 'offline'}" title="Manager"></span>
+                                </span>
+                                ${agent.name}
+                            </div>
+                            <span class="agent-ip">${agent.ip}</span>
+                        </div>
+                        <div class="agent-versions">
+                            <span class="version-left">Agent: ${agentVersion}</span>
+                            <span class="version-right">Manager: ${managerVersion}</span>
+                        </div>
+                        ${agent.lastSeen ? `<div class="agent-details"><small>Last seen: ${formatTime(new Date(agent.lastSeen))}</small></div>` : ''}
+                    `;
+                    div.onclick = () => toggleAgent(agent.name, div);
+                    div.oncontextmenu = (e) => showAgentContextMenu(e, agent);
+                    agentsList.appendChild(div);
+                });
+            } catch (error) {
+                console.error('Failed to load agents:', error);
+            }
+        }
+        
+        function toggleAgent(agentId, element) {
+            const index = selectedAgents.indexOf(agentId);
+            if (index > -1) {
+                selectedAgents.splice(index, 1);
+                element.classList.remove('selected');
+            } else {
+                selectedAgents.push(agentId);
+                element.classList.add('selected');
+            }
+        }
+        
+        // Utility functions
+        function formatTime(date = new Date()) {
+            return date.toLocaleTimeString('en-US', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+        }
+        
+        function formatDate(date) {
+            return new Date(date).toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+        
+        // History persistence
+        function saveHistory() {
+            localStorage.setItem('aiHubChatHistory', JSON.stringify(chatHistory));
+        }
+        
+        function loadHistory() {
+            const saved = localStorage.getItem('aiHubChatHistory');
+            if (saved) {
+                chatHistory = JSON.parse(saved);
+            }
+        }
+        
+        // Handle Enter key in form textarea
+        function handleFormKeydown(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                // Submit the form
+                const form = event.target.closest('form');
+                if (form) {
+                    form.dispatchEvent(new Event('submit', { cancelable: true }));
+                }
+            }
+        }
+        
+        // Global hub version for cache busting
+        let HUB_VERSION = null;
+        
+        // Load hub status
+        async function loadHubStatus() {
+            try {
+                const response = await fetch(`${API_BASE}/status`);
+                const data = await response.json();
+                const hubVersion = data.version || '2.0.9';
+                const managerVersion = data.managerVersion || 'unknown';
+                
+                // Store hub version globally for cache busting
+                HUB_VERSION = hubVersion;
+                
+                // Update the status bar with both versions
+                const statusSegment = document.querySelector('.status-segment:has(#hub-version)');
+                if (statusSegment) {
+                    statusSegment.innerHTML = `<span>Hub v${hubVersion} (mgr v${managerVersion})</span>`;
+                }
+                
+                // Handle version-based cache clearing
+                const storedVersion = localStorage.getItem('hubVersion');
+                if (storedVersion && storedVersion !== hubVersion) {
+                    console.log(`Version changed from ${storedVersion} to ${hubVersion}, clearing old localStorage data`);
+                    // Console commands now in-memory only
+                }
+                localStorage.setItem('hubVersion', hubVersion);
+                
+                console.log(`CACHE BUST: Loading hub v${hubVersion} at`, new Date().toISOString());
+            } catch (error) {
+                console.error('Failed to load hub status:', error);
+            }
+        }
+        
+        // Initialization moved to after console functions are defined
+        
+        // Context menu handling
+        function showAgentContextMenu(event, agent) {
+            event.preventDefault();
+            
+            // Remove any existing context menu
+            const existingMenu = document.getElementById('agent-context-menu');
+            if (existingMenu) existingMenu.remove();
+            
+            // Create context menu
+            const menu = document.createElement('div');
+            menu.id = 'agent-context-menu';
+            menu.style.cssText = `
+                position: fixed;
+                left: ${event.clientX}px;
+                top: ${event.clientY}px;
+                background: var(--bg-secondary);
+                border: 1px solid var(--border-color);
+                border-radius: 6px;
+                padding: 4px;
+                z-index: 1000;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            `;
+            
+            const operations = [
+                { label: 'Start Agent', action: 'start' },
+                { label: 'Stop Agent', action: 'stop' },
+                { label: 'Restart Agent', action: 'restart' },
+                { label: '─────────────', action: 'separator' },
+                { label: 'Start Manager', action: 'start-manager' },
+                { label: 'Stop Manager', action: 'stop-manager' },
+                { label: 'Restart Manager', action: 'restart-manager' },
+                { label: '─────────────', action: 'separator' },
+                { label: 'Open SSH', action: 'ssh' },
+                { label: 'Reboot Machine', action: 'reboot' }
+            ];
+            
+            operations.forEach(op => {
+                const item = document.createElement('div');
+                
+                if (op.action === 'separator') {
+                    item.style.cssText = `
+                        height: 1px;
+                        background: var(--border-color);
+                        margin: 4px 8px;
+                    `;
+                } else {
+                    item.style.cssText = `
+                        padding: 8px 16px;
+                        cursor: pointer;
+                        color: var(--text-primary);
+                        transition: background 0.2s;
+                        border-radius: 4px;
+                    `;
+                    item.textContent = op.label;
+                    item.onmouseover = () => item.style.background = 'var(--bg-tertiary)';
+                    item.onmouseout = () => item.style.background = 'transparent';
+                    item.onclick = () => {
+                        executeAgentOperation(agent, op.action);
+                        menu.remove();
+                    };
+                }
+                menu.appendChild(item);
+            });
+            
+            document.body.appendChild(menu);
+            
+            // Remove menu when clicking elsewhere
+            setTimeout(() => {
+                document.addEventListener('click', () => menu.remove(), { once: true });
+            }, 0);
+        }
+        
+        async function executeAgentOperation(agent, operation) {
+            // Validate agent object
+            if (!agent || typeof agent !== 'object') {
+                console.error('Invalid agent object:', agent);
+                alert('Invalid agent object');
+                return;
+            }
+            
+            const startTime = Date.now();
+            
+            // Generate correlationId upfront
+            const correlationId = `cmd_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            
+            // Add to console immediately with correlationId
+            addConsoleCommand(agent.name, operation, 'pending', correlationId);
+            
+            try {
+                let endpoint;
+                let method = 'POST';
+                let body = { correlationId }; // Include correlationId in request body
+                
+                // Map operations to correct endpoints
+                switch(operation) {
+                    case 'start':
+                    case 'stop':
+                    case 'restart':
+                        // Agent lifecycle operations go through hub API
+                        endpoint = `${API_BASE}/agents/${agent.name}/${operation}`;
+                        break;
+                    case 'start-manager':
+                        endpoint = `${API_BASE}/managers/${agent.name}/start`;
+                        break;
+                    case 'stop-manager':
+                        endpoint = `${API_BASE}/managers/${agent.name}/stop`;
+                        break;
+                    case 'restart-manager':
+                        endpoint = `${API_BASE}/managers/${agent.name}/restart`;
+                        break;
+                    case 'ssh':
+                        // Open SSH in new tab (placeholder)
+                        if (!agent || !agent.ip) {
+                            console.error('Cannot SSH: agent has no IP address');
+                            alert('Cannot SSH: agent has no IP address');
+                            return;
+                        }
+                        window.open(`ssh://${agent.ip}`, '_blank');
+                        return;
+                    case 'reboot':
+                        // Use command endpoint for reboot
+                        endpoint = `${API_BASE}/command`;
+                        break;
+                    default:
+                        throw new Error(`Unknown operation: ${operation}`);
+                }
+                
+                // Update body based on operation
+                if (operation === 'reboot') {
+                    body.command = `reboot ${agent.name}`;
+                    body.targetAgents = [agent.name];
+                }
+                
+                const response = await fetch(endpoint, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: Object.keys(body).length > 0 ? JSON.stringify(body) : undefined
+                });
+                
+                const apiTime = Date.now() - startTime;
+                const result = await response.json();
+                console.log(`Operation ${operation} result:`, result);
+                
+                // Update the console command with actual API time
+                const commands = getStoredCommands();
+                const command = commands.find(c => c.correlationId === correlationId);
+                if (command) {
+                    command.apiTime = `${apiTime}ms`;
+                    // Commands already in executionHistory array
+                    renderConsoleTable();
+                }
+                
+                if (result.success || response.ok) {
+                    let message = `Operation '${operation}' executed on ${agent.name}`;
+                    if (operation.includes('manager')) {
+                        message = `Manager ${operation.replace('-manager', '')} operation executed on ${agent.name}`;
+                        if (result.output) {
+                            message += `: ${result.output}`;
+                        }
+                    }
+                    addMessage(activeTabId, message, false);
+                    // Refresh agent list after operation
+                    setTimeout(loadAgents, 2000);
+                } else {
+                    addMessage(activeTabId, `Failed to execute '${operation}': ${result.error || result.message}`, false);
+                    // Mark command as failed
+                    updateCommandStatus(correlationId, { status: 'failed', error: result.error || result.message });
+                }
+            } catch (error) {
+                addMessage(activeTabId, `Error: ${error.message}`, false);
+                // Mark command as failed in console
+                updateCommandStatus(correlationId, { status: 'failed', error: error.message });
+            }
+        }
+        
+        // Console management - Chrome DevTools style (in-memory only)
+        let consoleVisible = false;
+        let executionHistory = []; // In-memory execution history (cleared on refresh)
+        let activeCorrelationIds = new Set(); // Track correlationIds from this session only
+        
+        function initializeConsole() {
+            try {
+                // Restore console visibility state
+                const savedState = localStorage.getItem('consoleVisible');
+                if (savedState === 'true') {
+                    consoleVisible = true;
+                    if (typeof showConsole === 'function') {
+                        showConsole();
+                    } else {
+                        // Fallback for old version
+                        const consoleWindow = document.getElementById('console-window');
+                        if (consoleWindow) {
+                            consoleWindow.style.display = 'block';
+                        }
+                    }
+                } else {
+                    // Ensure console starts hidden if not explicitly set to visible
+                    consoleVisible = false;
+                    if (typeof hideConsole === 'function') {
+                        hideConsole();
+                    }
+                }
+                
+                // Only try to restore console table if the functions exist
+                // This prevents errors when browser loads old cached version
+                if (typeof window.renderConsoleTable === 'function') {
+                    window.renderConsoleTable();
+                } else {
+                    console.log('Console command tracking not available in this version');
+                    // Console commands now in-memory only
+                }
+                
+                if (typeof window.restorePolling === 'function') {
+                    window.restorePolling();
+                }
+                
+                // Restore timeouts for pending commands
+                restorePendingTimeouts();
+            } catch (error) {
+                console.error('Error initializing console:', error);
+                // Clear problematic data
+                // Console commands now in-memory only
+            }
+        }
+        
+        function toggleConsole() {
+            consoleVisible = !consoleVisible;
+            localStorage.setItem('consoleVisible', consoleVisible.toString());
+            
+            if (consoleVisible) {
+                showConsole();
+            } else {
+                hideConsole();
+            }
+        }
+        
+        function showConsole() {
+            const consoleWindow = document.getElementById('console-window');
+            const consoleArrow = document.getElementById('console-arrow');
+            
+            consoleWindow.classList.add('visible');
+            consoleArrow.classList.add('up');
+            consoleArrow.textContent = '▼';
+            consoleVisible = true;
+        }
+        
+        function hideConsole() {
+            const consoleWindow = document.getElementById('console-window');
+            const consoleArrow = document.getElementById('console-arrow');
+            
+            consoleWindow.classList.remove('visible');
+            consoleArrow.classList.remove('up');
+            consoleArrow.textContent = '▲';
+            consoleVisible = false;
+        }
+        
+        // Console command tracking
+        let activePollers = new Map(); // Track active polling operations
+        let commandTimeouts = new Map(); // Track command timeouts
+        
+        // Function to format timing information
+        function formatTimingInfo(execution) {
+            const start = new Date(execution.startTime).toLocaleTimeString('en-US', { hour12: false });
+            let info = `Start: ${start}`;
+            
+            if (execution.callbackTime) {
+                const callback = new Date(execution.callbackTime).toLocaleTimeString('en-US', { hour12: false });
+                const callbackDelay = execution.callbackTime - execution.startTime;
+                info += `<br>Callback: ${callback} (+${callbackDelay}ms)`;
+            }
+            
+            if (execution.pollingDetectedTime) {
+                const polling = new Date(execution.pollingDetectedTime).toLocaleTimeString('en-US', { hour12: false });
+                const pollingDelay = execution.pollingDetectedTime - execution.startTime;
+                const afterCallback = execution.callbackTime ? 
+                    execution.pollingDetectedTime - execution.callbackTime : null;
+                info += `<br>Polling: ${polling} (+${pollingDelay}ms`;
+                if (afterCallback !== null) {
+                    info += `, ${afterCallback}ms after callback`;
+                }
+                info += ')';
+            }
+            
+            return info;
+        }
+        
+        // Function to update command timing from correlation tracker
+        async function updateCommandTiming(correlationId) {
+            if (!correlationId) return;
+            
+            try {
+                const response = await fetch(`/api/executions/${correlationId}`);
+                if (response.ok) {
+                    const execution = await response.json();
+                    const command = consoleCommands.find(cmd => cmd.correlationId === correlationId);
+                    if (command) {
+                        command.timingInfo = formatTimingInfo(execution);
+                        command.status = execution.status || 'pending';
+                        updateConsoleDisplay();
+                    }
+                }
+            } catch (error) {
+                console.log('Failed to fetch timing info:', error);
+            }
+        }
+        
+        function addConsoleCommand(agentName, command, apiTime, correlationId, isChild = false, parentId = null) {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('en-US', { hour12: true });
+            
+            // Create initial execution object for timing display
+            const initialExecution = {
+                correlationId: correlationId,
+                startTime: now.getTime(),
+                callbackTime: null,
+                pollingDetectedTime: null
+            };
+            
+            const commandData = {
+                id: correlationId || `cmd_${now.getTime()}_${Math.random().toString(36).substr(2, 9)}`,
+                correlationId: correlationId,
+                timestamp: now.getTime(),
+                time: timeStr,
+                agent: agentName,
+                command: command,
+                timingInfo: formatTimingInfo(initialExecution),
+                status: 'pending',
+                duration: null,
+                isChild: isChild,
+                parentId: parentId,
+                startTime: now.getTime(),
+                callbackTime: null,
+                pollingDetectedTime: null,
+                completed: false,
+                error: null
+            };
+            
+            // Add to in-memory history and track correlationId
+            executionHistory.unshift(commandData); // Add to beginning
+            activeCorrelationIds.add(correlationId); // Track this session's correlationId
+            
+            // Add to table
+            renderConsoleTable();
+            
+            // Start listening for execution updates if we have a correlationId
+            if (correlationId && !isChild) {
+                console.log(`[CONSOLE] Starting to listen for updates on ${correlationId}`);
+                listenForExecutionUpdates(correlationId);
+                
+                // Fetch initial execution data to get proper timing info
+                setTimeout(async () => {
+                    try {
+                        console.log(`[CONSOLE] Fetching initial data for ${correlationId}`);
+                        const response = await fetch(`/api/executions/${correlationId}`);
+                        if (response.ok) {
+                            const execution = await response.json();
+                            console.log(`[CONSOLE] Got execution data:`, execution);
+                            const commands = getStoredCommands();
+                            const command = commands.find(c => c.correlationId === correlationId);
+                            if (command) {
+                                command.timingInfo = formatTimingInfo(execution);
+                                command.status = execution.status || 'pending';
+                                
+                                // Update the specific time fields
+                                if (execution.callbackTime) {
+                                    command.callbackTime = execution.callbackTime;
+                                }
+                                if (execution.pollingDetectedTime) {
+                                    command.pollingDetectedTime = execution.pollingDetectedTime;
+                                }
+                                
+                                if (execution.endTime) {
+                                    command.duration = execution.endTime - execution.startTime;
+                                }
+                                if (execution.error) {
+                                    command.error = execution.error;
+                                }
+                                // Already updating in-memory executionHistory
+                                renderConsoleTable();
+                                console.log(`[CONSOLE] Updated command with timing info:`, command.timingInfo);
+                            }
+                        } else {
+                            console.log(`[CONSOLE] Failed to fetch execution - status ${response.status}`);
+                        }
+                    } catch (error) {
+                        console.log('Failed to fetch initial timing info:', error);
+                    }
+                }, 500); // Small delay to ensure execution is tracked
+                
+                // Set client-side timeout (120 seconds for manager operations, 60 for others)
+                const timeoutMs = commandData.command.includes('manager') ? 120000 : 60000;
+                const timeoutId = setTimeout(() => {
+                    console.log(`[TIMEOUT] Command ${correlationId} timed out after ${timeoutMs/1000} seconds`);
+                    
+                    // Update command status to timeout
+                    const commands = getStoredCommands();
+                    const timedOutCommand = commands.find(c => c.correlationId === correlationId);
+                    if (timedOutCommand) {
+                        timedOutCommand.status = 'timeout';
+                        timedOutCommand.error = 'Command timed out after 60 seconds';
+                        // Already updating in-memory executionHistory
+                        renderConsoleTable();
+                        console.log(`[TIMEOUT] Updated command status for ${correlationId}`);
+                    } else {
+                        console.log(`[TIMEOUT] Could not find command ${correlationId} to update`);
+                    }
+                    
+                    // Clean up
+                    executionListeners.delete(correlationId);
+                    commandTimeouts.delete(correlationId);
+                }, timeoutMs);
+                
+                commandTimeouts.set(correlationId, timeoutId);
+                console.log(`[TIMEOUT] Set timeout for ${correlationId}, will fire in ${timeoutMs/1000} seconds`);
+            } else {
+                // Fallback to polling for commands without correlationId
+                startPolling(commandData);
+            }
+            
+            return commandData.id;
+        }
+        
+        function addBulkCommand(commandType, agents, apiTime, parentCorrelationId) {
+            const parentId = addConsoleCommand(commandType, '-', apiTime, parentCorrelationId, false);
+            
+            // Add child commands for each agent
+            agents.forEach(agent => {
+                const childCommand = commandType.replace('-all', '');
+                // Child commands don't have their own correlationId in bulk operations
+                addConsoleCommand(agent.name, childCommand, 'pending', null, true, parentId);
+            });
+            
+            return parentId;
+        }
+        
+        function getExpectedState(command) {
+            if (command.includes('start')) return 'online';
+            if (command.includes('stop')) return 'offline';
+            return 'unknown';
+        }
+        
+        function getStoredCommands() {
+            // Return in-memory execution history (Chrome DevTools style)
+            return executionHistory;
+        }
+        
+        function renderConsoleTable() {
+            const commands = getStoredCommands();
+            const tbody = document.getElementById('console-table-body');
+            
+            tbody.innerHTML = commands.map(cmd => {
+                const rowClass = cmd.isChild ? 'console-row-child' : '';
+                const agentCell = cmd.isChild ? `<td class="${rowClass}">${cmd.agent}</td>` : `<td>${cmd.agent}</td>`;
+                
+                // Format completion datetime (callback time)
+                let completionDisplay = '-';
+                if (cmd.callbackTime) {
+                    const callbackDate = new Date(cmd.callbackTime);
+                    const duration = cmd.callbackTime - cmd.startTime;
+                    completionDisplay = `${callbackDate.toLocaleTimeString('en-US', { hour12: false })} (${(duration/1000).toFixed(1)}s)`;
+                }
+                
+                // Dot DT removed - redundant with immediate status updates
+                
+                // Determine status display
+                let statusDisplay = '';
+                let statusClass = '';
+                
+                if (cmd.status === 'pending') {
+                    statusDisplay = 'pending';
+                    statusClass = 'status-polling';
+                } else if (cmd.status === 'success') {
+                    statusDisplay = 'success';
+                    statusClass = 'status-completed';
+                } else if (cmd.status === 'failed') {
+                    statusDisplay = cmd.error || 'failed';
+                    statusClass = 'status-failed';
+                } else if (cmd.status === 'timeout') {
+                    const timeoutSecs = cmd.command.includes('manager') ? 120 : 60;
+                    statusDisplay = `timeout (${timeoutSecs}s)`;
+                    statusClass = 'status-failed';
+                }
+                
+                // Log column - always show View link if correlationId exists
+                const logCell = cmd.correlationId ? 
+                    `<td><a href="#" onclick="viewLogs('${cmd.correlationId}', '${cmd.agent}'); return false;" style="color: var(--accent-primary); text-decoration: none;">View</a></td>` : 
+                    '<td>-</td>';
+                
+                return `
+                    <tr data-command-id="${cmd.id}" data-correlation-id="${cmd.correlationId || ''}">
+                        <td>${cmd.time}</td>
+                        ${agentCell}
+                        <td>${cmd.command}</td>
+                        <td>${completionDisplay}</td>
+                        <td class="${statusClass}">${statusDisplay}</td>
+                        ${logCell}
+                    </tr>
+                `;
+            }).join('');
+        }
+        
+        function startPolling(commandData) {
+            if (commandData.completed) return;
+            
+            const pollerId = setInterval(async () => {
+                try {
+                    const response = await getAgents();
+                    if (!response || !response.agents || !Array.isArray(response.agents)) {
+                        console.warn('Invalid agents response in polling');
+                        return;
+                    }
+                    
+                    const agent = response.agents.find(a => a && a.name === commandData.agent);
+                    
+                    if (agent && hasReachedExpectedState(agent, commandData)) {
+                        // Command completed
+                        const completionTime = Date.now() - commandData.startTime;
+                        updateCommandCompletion(commandData.id, `${(completionTime/1000).toFixed(1)}s`);
+                        clearInterval(pollerId);
+                        activePollers.delete(commandData.id);
+                        
+                        // Check if parent command should be updated
+                        if (commandData.parentId) {
+                            checkParentCompletion(commandData.parentId);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Polling error:', error);
+                    // Don't stop polling on error, just log it
+                }
+            }, 10000); // Poll every 10 seconds
+            
+            activePollers.set(commandData.id, pollerId);
+        }
+        
+        function hasReachedExpectedState(agent, commandData) {
+            if (commandData.command.includes('manager')) {
+                // Check manager status
+                return agent.managerVersion && agent.managerVersion !== 'unknown';
+            } else {
+                // Check agent status
+                return commandData.expectedState === 'online' ? agent.isOnline : !agent.isOnline;
+            }
+        }
+        
+        function updateCommandCompletion(commandId, uiTime) {
+            const commands = getStoredCommands();
+            const command = commands.find(c => c.id === commandId);
+            if (command) {
+                command.uiTime = uiTime;
+                command.completed = true;
+                // Already updating in-memory executionHistory
+                renderConsoleTable();
+            }
+        }
+        
+        function checkParentCompletion(parentId) {
+            const commands = getStoredCommands();
+            const childCommands = commands.filter(c => c.parentId === parentId);
+            const allCompleted = childCommands.every(c => c.completed);
+            
+            if (allCompleted) {
+                const maxTime = Math.max(...childCommands.map(c => parseFloat(c.uiTime) || 0));
+                updateCommandCompletion(parentId, `${maxTime.toFixed(1)}s`);
+            }
+        }
+        
+        function restorePolling() {
+            try {
+                const commands = getStoredCommands();
+                console.log('Restoring polling for', commands.length, 'commands');
+                commands.forEach(cmd => {
+                    if (!cmd.completed && cmd.uiTime === 'polling') {
+                        console.log('Resuming polling for command:', cmd);
+                        startPolling(cmd);
+                    }
+                });
+            } catch (error) {
+                console.error('Error in restorePolling:', error);
+            }
+        }
+        
+        function saveConsoleContent(content) {
+            // Legacy function for backward compatibility
+        }
+        
+        function getConsoleContent() {
+            return '';
+        }
+        
+        function clearConsoleContent() {
+            if (confirm('Clear all console entries?')) {
+                executionHistory = []; // Clear in-memory history
+                activeCorrelationIds.clear(); // Clear tracked IDs
+                activePollers.forEach(pollerId => clearInterval(pollerId));
+                activePollers.clear();
+                commandTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
+                commandTimeouts.clear();
+                executionListeners.clear();
+                cleanupEventSource();
+                renderConsoleTable();
+                console.log('[CONSOLE] Cleared all console entries');
+            }
+        }
+        
+        function restorePendingTimeouts() {
+            const commands = getStoredCommands();
+            const now = Date.now();
+            
+            commands.forEach(cmd => {
+                if (cmd.status === 'pending' && cmd.correlationId) {
+                    const elapsed = now - cmd.timestamp;
+                    const remaining = 60000 - elapsed;
+                    
+                    if (remaining > 0) {
+                        // Command hasn't timed out yet, set a new timeout for remaining time
+                        const timeoutId = setTimeout(() => {
+                            console.log(`[TIMEOUT] Restored command ${cmd.correlationId} timed out`);
+                            
+                            // Update command status to timeout
+                            const currentCommands = getStoredCommands();
+                            const timedOutCommand = currentCommands.find(c => c.correlationId === cmd.correlationId);
+                            if (timedOutCommand && timedOutCommand.status === 'pending') {
+                                timedOutCommand.status = 'timeout';
+                                timedOutCommand.error = 'Command timed out after 60 seconds';
+                                // Already updating in-memory executionHistory
+                                renderConsoleTable();
+                            }
+                            
+                            commandTimeouts.delete(cmd.correlationId);
+                        }, remaining);
+                        
+                        commandTimeouts.set(cmd.correlationId, timeoutId);
+                        console.log(`[TIMEOUT] Restored timeout for ${cmd.correlationId}, will fire in ${Math.round(remaining/1000)}s`);
+                        
+                        // Also restore execution listener
+                        listenForExecutionUpdates(cmd.correlationId);
+                    } else {
+                        // Command should have already timed out
+                        console.log(`[TIMEOUT] Command ${cmd.correlationId} should have timed out ${Math.round((elapsed-60000)/1000)}s ago`);
+                        cmd.status = 'timeout';
+                        cmd.error = 'Command timed out after 60 seconds';
+                    }
+                }
+            });
+            
+            // Save any timeout updates
+            // Already updating in-memory executionHistory
+            renderConsoleTable();
+        }
+        
+        // Initialize - moved here after all functions are defined
+        loadHistory();
+        loadAgents();
+        loadHubStatus();
+        initializeConsole();
+        const agentRefreshInterval = setInterval(loadAgents, 5000);
+        
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            // Clean up all intervals and timeouts
+            clearInterval(agentRefreshInterval);
+            activePollers.forEach(pollerId => clearInterval(pollerId));
+            commandTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
+            cleanupEventSource();
+        });
+        
+        // Focus initial input
+        document.getElementById('task-title').focus();
+        
+        // Hamburger menu functions
+        function toggleAgentMenu(event) {
+            event.stopPropagation();
+            const menu = document.getElementById('agent-menu');
+            menu.classList.toggle('open');
+            
+            // Close on outside click
+            if (menu.classList.contains('open')) {
+                setTimeout(() => {
+                    document.addEventListener('click', () => {
+                        menu.classList.remove('open');
+                    }, { once: true });
+                }, 0);
+            }
+        }
+        
+        async function startAllAgents() {
+            console.log('Starting all agents...');
+            const startTime = Date.now();
+            const agents = await getAgents();
+            console.log('Found agents:', agents.agents.map(a => a.name));
+            let started = 0;
+            let failed = 0;
+            const errors = [];
+            
+            // Add bulk command to console with correlationId
+            const apiTime = Date.now() - startTime;
+            const bulkCorrelationId = `bulk_start_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            addBulkCommand('start-all', agents.agents, `${apiTime}ms`, bulkCorrelationId);
+            
+            // Start all agents in parallel
+            const startPromises = agents.agents.map(agent => {
+                console.log(`Starting agent: ${agent.name}`);
+                return fetch(`${API_BASE}/agents/${agent.name}/start`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                })
+                .then(response => {
+                    if (response.ok) {
+                        console.log(`Successfully started: ${agent.name}`);
+                        return { agent: agent.name, success: true };
+                    } else {
+                        return response.text().then(error => {
+                            console.error(`Failed to start ${agent.name}:`, error);
+                            return { agent: agent.name, success: false, error };
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error(`Error starting ${agent.name}:`, error);
+                    return { agent: agent.name, success: false, error: error.message };
+                });
+            });
+            
+            // Wait for all to complete
+            const results = await Promise.all(startPromises);
+            
+            // Count successes and failures
+            results.forEach(result => {
+                if (result.success) {
+                    started++;
+                } else {
+                    failed++;
+                    errors.push(`${result.agent}: ${result.error}`);
+                }
+            });
+            
+            const message = `Started ${started} agents, ${failed} failed`;
+            if (errors.length > 0) {
+                console.error('Start errors:', errors);
+            }
+            addMessage(activeTabId, message, false);
+            setTimeout(loadAgents, 2000);
+        }
+        
+        async function stopAllAgents() {
+            const startTime = Date.now();
+            const agents = await getAgents();
+            let stopped = 0;
+            let failed = 0;
+            
+            // Add bulk command to console with correlationId
+            const apiTime = Date.now() - startTime;
+            const bulkCorrelationId = `bulk_stop_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            addBulkCommand('stop-all', agents.agents, `${apiTime}ms`, bulkCorrelationId);
+            
+            for (const agent of agents.agents) {
+                try {
+                    // Call through hub API
+                    const response = await fetch(`${API_BASE}/agents/${agent.name}/stop`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                    
+                    if (response.ok) {
+                        stopped++;
+                    } else {
+                        failed++;
+                    }
+                } catch (error) {
+                    failed++;
+                }
+            }
+            
+            addMessage(activeTabId, `Stopped ${stopped} agents, ${failed} failed`, false);
+            setTimeout(loadAgents, 2000);
+        }
+        
+        async function getAgents() {
+            const response = await fetch(`${API_BASE}/agents`);
+            return await response.json();
+        }
+        
+        // Add viewLogs function
+        let viewLogsInProgress = false;
+        async function viewLogs(correlationId, agentName) {
+            // Prevent multiple simultaneous calls
+            if (viewLogsInProgress) {
+                console.log('viewLogs already in progress, ignoring duplicate call');
+                return;
+            }
+            
+            // Check if correlationId is valid
+            if (!correlationId || correlationId === 'undefined') {
+                console.error('Invalid correlationId:', correlationId);
+                alert('Error: No correlationId available for this command');
+                return;
+            }
+            
+            viewLogsInProgress = true;
+            console.log(`Viewing logs for correlationId: ${correlationId} on agent: ${agentName}`);
+            
+            try {
+                // First, get the hub's correlation tracker logs
+                const hubResponse = await fetch(`${API_BASE}/executions/${correlationId}`);
+                if (!hubResponse.ok) {
+                    if (hubResponse.status === 404) {
+                        throw new Error(`No logs found for correlationId: ${correlationId}`);
+                    }
+                    throw new Error(`Failed to fetch logs: ${hubResponse.status} ${hubResponse.statusText}`);
+                }
+                
+                const execution = await hubResponse.json();
+                
+                // Create modal to show logs
+                const modal = document.createElement('div');
+                modal.className = 'modal';
+                modal.innerHTML = `
+                    <div class="modal-content" style="max-width: 90%; max-height: 80vh;">
+                        <div class="modal-header">
+                            <h2>Logs for ${correlationId}</h2>
+                            <span class="close-button" onclick="this.closest('.modal').remove()">&times;</span>
+                        </div>
+                        <div class="modal-body" style="overflow-y: auto; max-height: 60vh;">
+                            <h3>Command: ${execution.command}</h3>
+                            <p><strong>Agent:</strong> ${execution.agent}</p>
+                            <p><strong>Status:</strong> ${execution.status}</p>
+                            <p><strong>Started:</strong> ${new Date(execution.startTime).toLocaleString()}</p>
+                            ${execution.endTime ? `<p><strong>Completed:</strong> ${new Date(execution.endTime).toLocaleString()}</p>` : ''}
+                            ${execution.callbackTime ? `<p><strong>Callback:</strong> ${new Date(execution.callbackTime).toLocaleString()}</p>` : ''}
+                            
+                            <h3>Execution Timeline:</h3>
+                            ${renderExecutionTimeline(execution)}
+                            
+                            <h3>Execution Logs:</h3>
+                            ${formatHubLogs(execution.logs)}
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+                modal.style.display = 'block';
+            } catch (error) {
+                console.error('Failed to fetch logs:', error);
+                alert('Failed to fetch logs: ' + error.message);
+            } finally {
+                viewLogsInProgress = false;
+            }
+        }
+        
+        function renderExecutionTimeline(execution) {
+            if (!execution.startTime) {
+                return '<p style="color: #888;">No timeline data available</p>';
+            }
+            
+            // Calculate phases from logs
+            const phases = [];
+            const startTime = execution.startTime;
+            let lastEventTime = startTime;
+            
+            // Parse logs to extract phases
+            if (execution.logs && execution.logs.length > 0) {
+                execution.logs.forEach((log, index) => {
+                    // Extract timestamp from log format: [2024-01-27T10:15:30.123Z] Message
+                    const timestampMatch = log.match(/\[(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)\]/);
+                    if (timestampMatch) {
+                        const logTime = new Date(timestampMatch[1]).getTime();
+                        
+                        // Identify phase type from log content
+                        let phaseName = 'Processing';
+                        let color = '#666';
+                        
+                        if (log.includes('[START]')) {
+                            phaseName = 'Initialization';
+                            color = '#4a90e2';
+                        } else if (log.includes('[HUB]')) {
+                            phaseName = 'Hub Processing';
+                            color = '#7b68ee';
+                        } else if (log.includes('SSH command:') || log.includes('Executing SSH')) {
+                            phaseName = 'SSH Execution';
+                            color = '#ff6b6b';
+                        } else if (log.includes('[NOTIFICATION]')) {
+                            phaseName = 'Agent Notification';
+                            color = '#4ecdc4';
+                        } else if (log.includes('[POLLING]')) {
+                            phaseName = 'Polling Detection';
+                            color = '#f39c12';
+                        } else if (log.includes('[CALLBACK]')) {
+                            phaseName = 'Callback Processing';
+                            color = '#27ae60';
+                        } else if (log.includes('[TIMEOUT]')) {
+                            phaseName = 'Timeout';
+                            color = '#e74c3c';
+                        }
+                        
+                        // Only add phase if it's different from the last one
+                        if (phases.length === 0 || phases[phases.length - 1].name !== phaseName) {
+                            if (phases.length > 0) {
+                                // End the previous phase
+                                phases[phases.length - 1].endTime = logTime;
+                            }
+                            phases.push({
+                                name: phaseName,
+                                startTime: logTime,
+                                endTime: null,
+                                color: color
+                            });
+                        }
+                    }
+                });
+            }
+            
+            // Close the last phase
+            if (phases.length > 0) {
+                const finalTime = execution.endTime || execution.callbackTime || Date.now();
+                phases[phases.length - 1].endTime = finalTime;
+            }
+            
+            // If no phases detected from logs, create basic phases
+            if (phases.length === 0) {
+                phases.push({
+                    name: 'Execution',
+                    startTime: startTime,
+                    endTime: execution.endTime || Date.now(),
+                    color: '#666'
+                });
+            }
+            
+            // Calculate total duration
+            const totalDuration = (phases[phases.length - 1].endTime || Date.now()) - startTime;
+            
+            // Render the timeline
+            let html = '<div style="background: #2a2a2a; padding: 15px; border-radius: 8px; margin: 10px 0;">';
+            html += '<div style="position: relative; height: 40px; background: #1a1a1a; border-radius: 4px; overflow: hidden;">';
+            
+            phases.forEach((phase, index) => {
+                const phaseStart = phase.startTime - startTime;
+                const phaseDuration = (phase.endTime || Date.now()) - phase.startTime;
+                const leftPercent = (phaseStart / totalDuration) * 100;
+                const widthPercent = (phaseDuration / totalDuration) * 100;
+                
+                html += `
+                    <div style="
+                        position: absolute;
+                        left: ${leftPercent}%;
+                        width: ${widthPercent}%;
+                        height: 100%;
+                        background: ${phase.color};
+                        opacity: 0.8;
+                        border-right: 1px solid #fff;
+                        overflow: hidden;
+                    " title="${phase.name}: ${(phaseDuration/1000).toFixed(1)}s">
+                        <span style="
+                            position: absolute;
+                            left: 4px;
+                            top: 50%;
+                            transform: translateY(-50%);
+                            color: white;
+                            font-size: 11px;
+                            white-space: nowrap;
+                        ">${phase.name}</span>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            
+            // Add legend
+            html += '<div style="margin-top: 10px; font-size: 12px;">';
+            html += `<div style="color: #888; margin-bottom: 5px;">Total Duration: ${(totalDuration/1000).toFixed(1)}s</div>`;
+            
+            // Show phase breakdown
+            const uniquePhases = {};
+            phases.forEach(phase => {
+                const duration = (phase.endTime || Date.now()) - phase.startTime;
+                if (!uniquePhases[phase.name]) {
+                    uniquePhases[phase.name] = { duration: 0, color: phase.color };
+                }
+                uniquePhases[phase.name].duration += duration;
+            });
+            
+            html += '<div style="display: flex; flex-wrap: wrap; gap: 15px; margin-top: 10px;">';
+            Object.entries(uniquePhases).forEach(([name, data]) => {
+                const percent = (data.duration / totalDuration) * 100;
+                html += `
+                    <div style="display: flex; align-items: center; gap: 5px;">
+                        <div style="width: 12px; height: 12px; background: ${data.color}; border-radius: 2px;"></div>
+                        <span style="color: #ccc;">${name}: ${(data.duration/1000).toFixed(1)}s (${percent.toFixed(0)}%)</span>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            
+            html += '</div></div>';
+            
+            return html;
+        }
+        
+        function formatHubLogs(logs) {
+            if (!logs || logs.length === 0) {
+                return '<p style="color: #888;">No logs available</p>';
+            }
+            
+            let html = '<div class="log-section"><pre style="background: #1e1e1e; padding: 12px; border-radius: 4px; color: #fff; overflow-x: auto;">';
+            for (const log of logs) {
+                html += log + '\n';
+            }
+            html += '</pre></div>';
+            return html;
+        }
+        
+        function formatLogSources(sources) {
+            let html = '';
+            let totalLogLines = 0;
+            
+            // Manager logs
+            if (sources.manager && sources.manager.length > 0) {
+                html += '<div class="log-section">';
+                html += '<h4>Agent Manager Logs (/var/log/ai-agent-manager.log):</h4>';
+                html += '<pre>' + sources.manager.join('\n') + '</pre>';
+                html += '</div>';
+                totalLogLines += sources.manager.length;
+            }
+            
+            // Agent logs
+            if (sources.agent && sources.agent.length > 0) {
+                html += '<div class="log-section">';
+                html += '<h4>Agent Service Logs (journalctl -u ai-agent):</h4>';
+                html += '<pre>' + sources.agent.join('\n') + '</pre>';
+                html += '</div>';
+                totalLogLines += sources.agent.length;
+            }
+            
+            // Systemd/service logs
+            if (sources.systemd && sources.systemd.length > 0) {
+                html += '<div class="log-section">';
+                html += '<h4>Service Manager Logs (systemd/rc.d):</h4>';
+                html += '<pre>' + sources.systemd.join('\n') + '</pre>';
+                html += '</div>';
+                totalLogLines += sources.systemd.length;
+            }
+            
+            // Hub logs (if available)
+            if (sources.hub && sources.hub.length > 0) {
+                html += '<div class="log-section">';
+                html += '<h4>Hub Logs:</h4>';
+                html += '<pre>' + sources.hub.join('\n') + '</pre>';
+                html += '</div>';
+                totalLogLines += sources.hub.length;
+            }
+            
+            if (totalLogLines === 0) {
+                html = '<p style="text-align: center; margin: 20px;">No logs found for correlationId: <code>' + sources.correlationId + '</code></p>';
+                html += '<p style="text-align: center; color: var(--text-muted);">This could mean the command hasn\'t been executed yet or logs haven\'t been written.</p>';
+            } else {
+                html = '<p style="margin-bottom: 10px;">Found ' + totalLogLines + ' log entries for correlationId: <code>' + sources.correlationId + '</code></p>' + html;
+            }
+            
+            return html;
+        }
+        
+        // Listen for execution updates via EventSource
+        let executionEventSource = null;
+        const executionListeners = new Map();
+        let reconnectAttempts = 0;
+        let reconnectTimeout = null;
+        
+        function listenForExecutionUpdates(correlationId) {
+            // Add to listeners first
+            executionListeners.set(correlationId, true);
+            console.log(`[EventSource] Added listener for ${correlationId}, total listeners: ${executionListeners.size}`);
+            
+            // If EventSource already exists and is open, we're done
+            if (executionEventSource && executionEventSource.readyState !== EventSource.CLOSED) {
+                console.log(`[EventSource] Using existing connection (state: ${executionEventSource.readyState})`);
+                return;
+            }
+            
+            // Create new EventSource if needed
+            if (!executionEventSource || executionEventSource.readyState === EventSource.CLOSED) {
+                console.log('Creating new EventSource connection for executions');
+                executionEventSource = new EventSource(`${API_BASE}/executions/stream`);
+                
+                executionEventSource.onopen = () => {
+                    console.log('EventSource connected');
+                    reconnectAttempts = 0; // Reset on successful connection
+                };
+                
+                executionEventSource.onmessage = (event) => {
+                    try {
+                        const execution = JSON.parse(event.data);
+                        
+                        // Only process if this correlationId is from our current session
+                        if (!activeCorrelationIds.has(execution.correlationId)) {
+                            return; // Ignore executions from other sessions
+                        }
+                        
+                        console.log('[EventSource] Received execution update:', execution);
+                        
+                        // Update command with matching correlationId
+                        const commands = getStoredCommands();
+                        const command = commands.find(c => c.correlationId === execution.correlationId);
+                        if (command) {
+                            console.log(`[EventSource] Updating command ${execution.correlationId} with timing info`);
+                            command.timingInfo = formatTimingInfo(execution);
+                            command.status = execution.status || 'pending';
+                            
+                            // Update the specific time fields
+                            if (execution.callbackTime) {
+                                command.callbackTime = execution.callbackTime;
+                            }
+                            if (execution.pollingDetectedTime) {
+                                command.pollingDetectedTime = execution.pollingDetectedTime;
+                            }
+                            
+                            if (execution.endTime) {
+                                command.duration = execution.endTime - execution.startTime;
+                            }
+                            if (execution.error) {
+                                command.error = execution.error;
+                            }
+                            // Already updating in-memory executionHistory
+                            renderConsoleTable();
+                            
+                            // Clear timeout if command is complete
+                            if (execution.status !== 'pending' && commandTimeouts.has(execution.correlationId)) {
+                                clearTimeout(commandTimeouts.get(execution.correlationId));
+                                commandTimeouts.delete(execution.correlationId);
+                            }
+                        }
+                        
+                        // Also call updateCommandStatus if we're actively listening
+                        if (execution.correlationId && executionListeners.has(execution.correlationId)) {
+                            updateCommandStatus(execution.correlationId, execution);
+                        }
+                    } catch (error) {
+                        console.error('[EventSource] Error processing message:', error, event.data);
+                    }
+                };
+                
+                executionEventSource.onerror = (error) => {
+                    console.warn('EventSource error:', error);
+                    
+                    // Clear any existing reconnect timeout
+                    if (reconnectTimeout) {
+                        clearTimeout(reconnectTimeout);
+                        reconnectTimeout = null;
+                    }
+                    
+                    // If the connection is closed, try to reconnect
+                    if (executionEventSource.readyState === EventSource.CLOSED) {
+                        reconnectAttempts++;
+                        
+                        if (reconnectAttempts > 3) {
+                            console.warn('EventSource: Max reconnection attempts reached, stopping');
+                            cleanupEventSource();
+                            return;
+                        }
+                        
+                        console.warn(`EventSource: Connection closed (attempt ${reconnectAttempts}/3), retrying in 5s...`);
+                        
+                        // Close and cleanup
+                        cleanupEventSource();
+                        
+                        // Reconnect after 5 seconds if we have pending commands
+                        reconnectTimeout = setTimeout(() => {
+                            const commands = getStoredCommands();
+                            const hasPendingCommands = commands.some(cmd => cmd.correlationId && cmd.status === 'pending');
+                            
+                            if (hasPendingCommands) {
+                                console.log('Reconnecting EventSource for pending commands');
+                                // Just need to call once, it will create the connection
+                                listenForExecutionUpdates(commands.find(cmd => cmd.correlationId && cmd.status === 'pending').correlationId);
+                            }
+                        }, 5000);
+                    }
+                };
+            }
+        }
+        
+        function cleanupEventSource() {
+            if (executionEventSource) {
+                executionEventSource.close();
+                executionEventSource = null;
+            }
+            if (reconnectTimeout) {
+                clearTimeout(reconnectTimeout);
+                reconnectTimeout = null;
+            }
+        }
+        
+        function updateCommandStatus(correlationId, execution) {
+            if (!executionListeners.has(correlationId)) return;
+            
+            const commands = getStoredCommands();
+            const command = commands.find(c => c.correlationId === correlationId);
+            
+            if (command) {
+                command.status = execution.status;
+                
+                // Update the specific time fields
+                if (execution.callbackTime) {
+                    command.callbackTime = execution.callbackTime;
+                }
+                if (execution.pollingDetectedTime) {
+                    command.pollingDetectedTime = execution.pollingDetectedTime;
+                }
+                
+                if (execution.endTime) {
+                    command.duration = execution.endTime - execution.startTime;
+                }
+                if (execution.error) {
+                    command.error = execution.error;
+                }
+                
+                // Update timing information with our three timestamps
+                command.timingInfo = formatTimingInfo(execution);
+                
+                // Already updating in-memory executionHistory
+                renderConsoleTable();
+                
+                // Stop listening if command is complete
+                if (execution.status !== 'pending') {
+                    executionListeners.delete(correlationId);
+                    
+                    // Clear client-side timeout if it exists
+                    if (commandTimeouts.has(correlationId)) {
+                        clearTimeout(commandTimeouts.get(correlationId));
+                        commandTimeouts.delete(correlationId);
+                    }
+                    
+                    // Check if parent command should be updated
+                    if (command.parentId) {
+                        checkParentCompletion(command.parentId);
+                    }
+                }
+            }
+        }
+        
+        // Version check is now handled in loadHubStatus() using the actual hub version
+    </script>
+</body>
+</html>

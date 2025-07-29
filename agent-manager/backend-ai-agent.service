@@ -1,0 +1,16 @@
+[Unit]
+Description=Backend AI Agent
+After=network.target backend-ai-manager.service
+Requires=backend-ai-manager.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/ai-agent/agent
+EnvironmentFile=/opt/ai-agent/agent/.env
+ExecStart=/usr/bin/node /opt/ai-agent/agent/dist/api/index.js
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

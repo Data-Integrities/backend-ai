@@ -1,0 +1,204 @@
+#!/bin/bash
+#
+# AI Agent Manager for Unraid
+# /etc/rc.d/rc.ai-agent-manager
+#
+# This script manages the AI Agent Manager service on Unraid
+# The manager in turn controls the AI Agent
+#
+
+MANAGER_DIR="/opt/ai-agent/manager"
+NODE_BIN="/usr/local/bin/node"
+LOGFILE="/var/log/ai-agent-manager.log"
+AGENT_NAME="AGENT_NAME_PLACEHOLDER"
+CONFIG_PATH="/opt/backend-ai-config.json"
+
+# Source Unraid functions if available
+[ -f /etc/rc.d/rc.functions ] && . /etc/rc.d/rc.functions
+
+# Function to send callback to hub
+sendCallback() {
+    local action="$1"  # complete or fail
+    local message="$2"
+    
+    # Only send callback if correlationId exists
+    if [ -n "$CORRELATION_ID" ]; then
+        HUB_URL=$(jq -r '.hub.ip + ":" + (.hub.port|tostring)' "$CONFIG_PATH" 2>/dev/null)
+        if [ -n "$HUB_URL" ]; then
+            if [ "$action" = "complete" ]; then
+                curl -X POST "http://$HUB_URL/api/executions/$CORRELATION_ID/complete" \
+                    -H "Content-Type: application/json" \
+                    -d "{\"result\":\"$message\"}" \
+                    2>/dev/null || true
+            elif [ "$action" = "fail" ]; then
+                curl -X POST "http://$HUB_URL/api/executions/$CORRELATION_ID/fail" \
+                    -H "Content-Type: application/json" \
+                    -d "{\"error\":\"$message\"}" \
+                    2>/dev/null || true
+            fi
+        fi
+    fi
+}
+
+# Function to wait for service to be in expected state
+waitFor() {
+    local operation="$1"  # start or stop
+    
+    if [ "$operation" = "start" ]; then
+        # Wait for API to be ready (up to 120 seconds)
+        echo "Waiting for manager API to be ready..."
+        local api_ready=false
+        for i in {1..60}; do
+            if curl -s http://localhost:3081/status > /dev/null 2>&1; then
+                api_ready=true
+                echo "Manager API is responding after $((i*2)) seconds"
+                break
+            fi
+            sleep 2
+        done
+        
+        if [ "$api_ready" = true ]; then
+            return 0
+        else
+            return 1
+        fi
+    elif [ "$operation" = "stop" ]; then
+        # Wait for service to stop responding
+        local max_wait=30
+        local elapsed=0
+        while [ $elapsed -lt $max_wait ]; do
+            if ! curl -s http://localhost:3081/status > /dev/null 2>&1; then
+                return 0
+            fi
+            sleep 1
+            elapsed=$((elapsed + 1))
+        done
+        return 1
+    fi
+}
+
+# Function to check if manager is running (without using pidfile)
+checkStatus() {
+    # Check if process is running
+    local pid=$(ps aux | grep "ai-agent/manager" | grep -v grep | awk '{print $2}')
+    
+    if [ -n "$pid" ]; then
+        # Process found, now check if API is responding
+        if curl -s http://localhost:3081/status > /dev/null 2>&1; then
+            echo "AI Agent Manager is running (PID: $pid)"
+            return 0
+        else
+            echo "AI Agent Manager process is running (PID: $pid) but API is not responding"
+            return 1
+        fi
+    else
+        echo "AI Agent Manager is not running"
+        return 1
+    fi
+}
+
+start() {
+    echo "Starting AI Agent Manager..."
+    
+    # Check if already running
+    if checkStatus > /dev/null 2>&1; then
+        echo "AI Agent Manager is already running"
+        return 1
+    fi
+    
+    # Set up environment and start
+    cd "$MANAGER_DIR"
+    export AGENT_NAME="$AGENT_NAME"
+    export CONFIG_PATH="$CONFIG_PATH"
+    export NODE_ENV="production"
+    
+    # Log startup attempt
+    echo "[$(date)] Starting AI Agent Manager..." >> "$LOGFILE"
+    echo "[$(date)] Node: $NODE_BIN" >> "$LOGFILE"
+    echo "[$(date)] Working directory: $MANAGER_DIR" >> "$LOGFILE"
+    
+    # Start the manager (use index-unraid.js if it exists)
+    if [ -f "$MANAGER_DIR/dist/index-unraid.js" ]; then
+        echo "[$(date)] Using index-unraid.js" >> "$LOGFILE"
+        nohup "$NODE_BIN" "$MANAGER_DIR/dist/index-unraid.js" >> "$LOGFILE" 2>&1 &
+    else
+        echo "[$(date)] Using index.js" >> "$LOGFILE"
+        nohup "$NODE_BIN" "$MANAGER_DIR/dist/index.js" >> "$LOGFILE" 2>&1 &
+    fi
+    
+    # Give it a moment to start
+    sleep 2
+    
+    # Wait for API to be ready
+    if waitFor "start"; then
+        echo "AI Agent Manager started successfully"
+        sendCallback "complete" "Manager started successfully"
+        return 0
+    else
+        # Check if process is still running
+        if checkStatus > /dev/null 2>&1; then
+            echo "Manager process is running but API is not responding after 120 seconds"
+            sendCallback "fail" "Manager API not responding after 120 seconds"
+            return 1
+        else
+            echo "AI Agent Manager failed to start"
+            tail -20 "$LOGFILE"
+            sendCallback "fail" "Manager failed to start"
+            return 1
+        fi
+    fi
+}
+
+stop() {
+    echo "Stopping AI Agent Manager..."
+    
+    # Check if manager is running
+    local pid=$(ps aux | grep "ai-agent/manager" | grep -v grep | awk '{print $2}')
+    
+    if [ -n "$pid" ]; then
+        echo "Stopping AI Agent Manager (PID: $pid)"
+        kill "$pid"
+        
+        # Wait for service to stop
+        if waitFor "stop"; then
+            echo "AI Agent Manager stopped"
+        else
+            # Force kill if still running
+            echo "Manager did not stop gracefully, force killing..."
+            kill -9 "$pid" 2>/dev/null || true
+        fi
+        
+    else
+        echo "AI Agent Manager is not running"
+    fi
+    
+    # Send completion callback regardless of which path was taken
+    sendCallback "complete" "Manager stop completed"
+}
+
+status() {
+    checkStatus
+}
+
+case "$1" in
+    start)
+        start
+        ;;
+    stop)
+        stop
+        ;;
+    restart)
+        stop
+        sleep 2
+        start
+        ;;
+    status)
+        status
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart|status}"
+        exit 1
+        ;;
+esac
+
+exit $?

@@ -1,0 +1,63 @@
+Jul 26 03:03:28 nginx ai-agent[859523]: Port 3080 is already in use!
+Jul 26 03:03:28 nginx systemd[1]: ai-agent.service: Main process exited, code=exited, status=1/FAILURE
+Jul 26 03:03:28 nginx systemd[1]: ai-agent.service: Failed with result 'exit-code'.
+Jul 26 03:03:38 nginx systemd[1]: ai-agent.service: Scheduled restart job, restart counter is at 1.
+Jul 26 03:03:38 nginx systemd[1]: Stopped Backend AI Agent.
+Jul 26 03:03:38 nginx systemd[1]: Started Backend AI Agent.
+Jul 26 03:03:39 nginx ai-agent[859734]: Port 3080 is already in use!
+Jul 26 03:03:39 nginx systemd[1]: ai-agent.service: Main process exited, code=exited, status=1/FAILURE
+Jul 26 03:03:39 nginx systemd[1]: ai-agent.service: Failed with result 'exit-code'.
+Jul 26 03:03:49 nginx systemd[1]: ai-agent.service: Scheduled restart job, restart counter is at 2.
+Jul 26 03:03:49 nginx systemd[1]: Stopped Backend AI Agent.
+Jul 26 03:03:49 nginx systemd[1]: Started Backend AI Agent.
+Jul 26 03:03:50 nginx ai-agent[859748]: Port 3080 is already in use!
+Jul 26 03:03:50 nginx systemd[1]: ai-agent.service: Main process exited, code=exited, status=1/FAILURE
+Jul 26 03:03:50 nginx systemd[1]: ai-agent.service: Failed with result 'exit-code'.
+Jul 26 03:04:00 nginx systemd[1]: ai-agent.service: Scheduled restart job, restart counter is at 3.
+Jul 26 03:04:00 nginx systemd[1]: Stopped Backend AI Agent.
+Jul 26 03:04:00 nginx systemd[1]: Started Backend AI Agent.
+Jul 26 03:04:00 nginx ai-agent[859769]: Port 3080 is already in use!
+Jul 26 03:04:00 nginx systemd[1]: ai-agent.service: Main process exited, code=exited, status=1/FAILURE
+Jul 26 03:04:00 nginx systemd[1]: ai-agent.service: Failed with result 'exit-code'.
+Jul 26 03:04:10 nginx systemd[1]: ai-agent.service: Scheduled restart job, restart counter is at 4.
+Jul 26 03:04:10 nginx systemd[1]: Stopped Backend AI Agent.
+Jul 26 03:04:10 nginx systemd[1]: Started Backend AI Agent.
+Jul 26 03:04:11 nginx ai-agent[859879]: Port 3080 is already in use!
+Jul 26 03:04:11 nginx systemd[1]: ai-agent.service: Main process exited, code=exited, status=1/FAILURE
+Jul 26 03:04:11 nginx systemd[1]: ai-agent.service: Failed with result 'exit-code'.
+Jul 26 03:04:21 nginx systemd[1]: ai-agent.service: Scheduled restart job, restart counter is at 5.
+Jul 26 03:04:21 nginx systemd[1]: Stopped Backend AI Agent.
+Jul 26 03:04:21 nginx systemd[1]: Started Backend AI Agent.
+Jul 26 03:04:22 nginx ai-agent[859903]: Port 3080 is already in use!
+Jul 26 03:04:22 nginx systemd[1]: ai-agent.service: Main process exited, code=exited, status=1/FAILURE
+Jul 26 03:04:22 nginx systemd[1]: ai-agent.service: Failed with result 'exit-code'.
+Jul 26 03:04:32 nginx systemd[1]: ai-agent.service: Scheduled restart job, restart counter is at 6.
+Jul 26 03:04:32 nginx systemd[1]: Stopped Backend AI Agent.
+Jul 26 03:04:32 nginx systemd[1]: Started Backend AI Agent.
+Jul 26 03:04:32 nginx ai-agent[860010]: Port 3080 is already in use!
+Jul 26 03:04:32 nginx systemd[1]: ai-agent.service: Main process exited, code=exited, status=1/FAILURE
+Jul 26 03:04:32 nginx systemd[1]: ai-agent.service: Failed with result 'exit-code'.
+Jul 26 03:04:43 nginx systemd[1]: ai-agent.service: Scheduled restart job, restart counter is at 7.
+Jul 26 03:04:43 nginx systemd[1]: Stopped Backend AI Agent.
+Jul 26 03:04:43 nginx systemd[1]: Started Backend AI Agent.
+Jul 26 03:04:43 nginx ai-agent[860115]: Port 3080 is already in use!
+Jul 26 03:04:43 nginx systemd[1]: ai-agent.service: Main process exited, code=exited, status=1/FAILURE
+Jul 26 03:04:43 nginx systemd[1]: ai-agent.service: Failed with result 'exit-code'.
+Jul 26 03:04:53 nginx systemd[1]: ai-agent.service: Scheduled restart job, restart counter is at 8.
+Jul 26 03:04:53 nginx systemd[1]: Stopped Backend AI Agent.
+Jul 26 03:04:53 nginx systemd[1]: Started Backend AI Agent.
+Jul 26 03:04:54 nginx ai-agent[860136]: Port 3080 is already in use!
+Jul 26 03:04:54 nginx systemd[1]: ai-agent.service: Main process exited, code=exited, status=1/FAILURE
+Jul 26 03:04:54 nginx systemd[1]: ai-agent.service: Failed with result 'exit-code'.
+Jul 26 03:05:04 nginx systemd[1]: ai-agent.service: Scheduled restart job, restart counter is at 9.
+Jul 26 03:05:04 nginx systemd[1]: Stopped Backend AI Agent.
+Jul 26 03:05:04 nginx systemd[1]: Started Backend AI Agent.
+Jul 26 03:05:05 nginx ai-agent[860243]: Port 3080 is already in use!
+Jul 26 03:05:05 nginx systemd[1]: ai-agent.service: Main process exited, code=exited, status=1/FAILURE
+Jul 26 03:05:05 nginx systemd[1]: ai-agent.service: Failed with result 'exit-code'.
+Jul 26 03:05:15 nginx systemd[1]: ai-agent.service: Scheduled restart job, restart counter is at 10.
+Jul 26 03:05:15 nginx systemd[1]: Stopped Backend AI Agent.
+Jul 26 03:05:15 nginx systemd[1]: Started Backend AI Agent.
+Jul 26 03:05:15 nginx ai-agent[860267]: Port 3080 is already in use!
+Jul 26 03:05:15 nginx systemd[1]: ai-agent.service: Main process exited, code=exited, status=1/FAILURE
+Jul 26 03:05:15 nginx systemd[1]: ai-agent.service: Failed with result 'exit-code'.

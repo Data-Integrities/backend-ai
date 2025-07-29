@@ -1,0 +1,21 @@
+[Unit]
+Description=Backend AI Hub Manager
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/backend-ai/hub
+ExecStart=/usr/bin/node /opt/backend-ai/hub/dist/manager/index.js
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ai-hub-manager
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=false
+
+[Install]
+WantedBy=multi-user.target

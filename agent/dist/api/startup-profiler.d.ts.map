@@ -1,0 +1,1 @@
+{"version":3,"file":"startup-profiler.d.ts","sourceRoot":"","sources":["../../api/startup-profiler.ts"],"names":[],"mappings":"AAAA,qBAAa,eAAe;IACxB,OAAO,CAAC,SAAS,CAAS;IAC1B,OAAO,CAAC,MAAM,CAA8D;IAC5E,OAAO,CAAC,aAAa,CAAS;;IAO9B,IAAI,CAAC,SAAS,EAAE,MAAM;IActB,SAAS;;;kBAtBoB,MAAM;kBAAQ,MAAM;uBAAa,MAAM;;;;CA8BvE"}

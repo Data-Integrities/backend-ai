@@ -1,0 +1,17 @@
+[Unit]
+Description=AI Agent Manager
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/ai-agent/manager
+ExecStart=/usr/bin/node /opt/ai-agent/manager/dist/index.js
+ExecStop=/bin/bash -c 'pkill -f "node.*manager/dist/index.js" || true'
+Restart=always
+RestartSec=10
+StandardOutput=append:/var/log/ai-agent-manager.log
+StandardError=append:/var/log/ai-agent-manager.log
+
+[Install]
+WantedBy=multi-user.target

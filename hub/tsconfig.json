@@ -1,12 +1,19 @@
 {
-  "extends": "../shared/tsconfig.json",
   "compilerOptions": {
+    "target": "es2020",
+    "module": "commonjs",
+    "lib": ["es2020"],
     "outDir": "./dist",
-    "rootDir": "./src"
+    "rootDir": "./",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true
   },
-  "references": [
-    { "path": "../shared" }
-  ],
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["api/**/*", "gui/**/*", "manager/**/*"],
+  "exclude": ["node_modules", "dist", "src"]
 }

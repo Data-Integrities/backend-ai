@@ -1,0 +1,44 @@
+Jul 26 04:02:38 backend-ai node[82981]: [HUB] Start command received for pve1 at 2025-07-26T04:02:38.080Z
+Jul 26 04:02:38 backend-ai node[82981]: [HUB] Start command received for pve3 at 2025-07-26T04:02:38.086Z
+Jul 26 04:02:38 backend-ai node[82981]: [HUB] Start command received for nginx at 2025-07-26T04:02:38.091Z
+Jul 26 04:02:38 backend-ai node[82981]: [HUB] Start command received for pve2 at 2025-07-26T04:02:38.096Z
+Jul 26 04:02:38 backend-ai node[82981]: [HUB] Start command received for unraid at 2025-07-26T04:02:38.100Z
+Jul 26 04:02:38 backend-ai node[82981]: [HUB] Manager responded in 30ms for pve3
+Jul 26 04:02:38 backend-ai node[82981]: [HUB] Manager responded in 25ms for pve2
+Jul 26 04:02:38 backend-ai node[82981]: [HUB] Manager responded in 38ms for unraid
+Jul 26 04:02:38 backend-ai node[82981]: [HUB] Manager responded in 61ms for pve1
+Jul 26 04:02:38 backend-ai node[82981]: [HUB] Manager responded in 71ms for nginx
+Jul 26 04:02:38 backend-ai node[82981]: Notification from -agent: agent-ready {
+Jul 26 04:02:38 backend-ai node[82981]:   capabilities: 'full',
+Jul 26 04:02:38 backend-ai node[82981]:   startupTime: 569,
+Jul 26 04:02:38 backend-ai node[82981]:   startupProfile: {
+Jul 26 04:02:38 backend-ai node[82981]:     totalMs: 569,
+Jul 26 04:02:38 backend-ai node[82981]:     milestones: [ [Object], [Object], [Object], [Object], [Object], [Object] ],
+Jul 26 04:02:38 backend-ai node[82981]:     apiReady: true,
+Jul 26 04:02:38 backend-ai node[82981]:     timestamp: '2025-07-26T04:02:38.794Z'
+Jul 26 04:02:38 backend-ai node[82981]:   }
+Jul 26 04:02:38 backend-ai node[82981]: }
+Jul 26 04:02:38 backend-ai node[82981]: === AGENT READY: -agent ===
+Jul 26 04:02:38 backend-ai node[82981]: Total startup time: 569ms
+Jul 26 04:02:38 backend-ai node[82981]: Startup profile:
+Jul 26 04:02:38 backend-ai node[82981]:   imports_complete: 438ms (+438ms)
+Jul 26 04:02:38 backend-ai node[82981]:   middleware_configured: 443ms (+5ms)
+Jul 26 04:02:38 backend-ai node[82981]:   routes_registered: 443ms (+0ms)
+Jul 26 04:02:38 backend-ai node[82981]:   server_listening: 462ms (+19ms)
+Jul 26 04:02:38 backend-ai node[82981]:   testing_api_readiness: 464ms (+2ms)
+Jul 26 04:02:38 backend-ai node[82981]:   api_confirmed_ready: 569ms (+105ms)
+Jul 26 04:02:38 backend-ai node[82981]: API ready: true
+Jul 26 04:02:38 backend-ai node[82981]: Timestamp: 2025-07-26T04:02:38.794Z
+Jul 26 04:02:38 backend-ai node[82981]: ===============================
+Jul 26 04:03:25 backend-ai node[82981]: Notification from unraid: event {
+Jul 26 04:03:25 backend-ai node[82981]:   severity: 'warning',
+Jul 26 04:03:25 backend-ai node[82981]:   message: 'High memory usage: 94.5%',
+Jul 26 04:03:25 backend-ai node[82981]:   resource: 'memory',
+Jul 26 04:03:25 backend-ai node[82981]:   value: 94.5211199157269
+Jul 26 04:03:25 backend-ai node[82981]: }
+Jul 26 04:03:25 backend-ai node[82981]: Event from unraid: {
+Jul 26 04:03:25 backend-ai node[82981]:   severity: 'warning',
+Jul 26 04:03:25 backend-ai node[82981]:   message: 'High memory usage: 94.5%',
+Jul 26 04:03:25 backend-ai node[82981]:   resource: 'memory',
+Jul 26 04:03:25 backend-ai node[82981]:   value: 94.5211199157269
+Jul 26 04:03:25 backend-ai node[82981]: }

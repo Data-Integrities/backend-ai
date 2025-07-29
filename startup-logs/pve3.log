@@ -1,0 +1,175 @@
+Jul 25 22:04:28 pve3 ai-agent[3462974]: Failed to notify hub: AxiosError: connect ECONNREFUSED 192.168.1.30:3000
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     at AxiosError.from (/opt/ai-agent/agent/node_modules/axios/dist/node/axios.cjs:899:14)
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     at RedirectableRequest.handleRequestError (/opt/ai-agent/agent/node_modules/axios/dist/node/axios.cjs:3228:25)
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     at RedirectableRequest.emit (node:events:518:28)
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     at eventHandlers.<computed> (/opt/ai-agent/agent/node_modules/follow-redirects/index.js:49:24)
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     at ClientRequest.emit (node:events:518:28)
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     at Socket.socketErrorListener (node:_http_client:495:9)
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     at Socket.emit (node:events:518:28)
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     at emitErrorNT (node:internal/streams/destroy:169:8)
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     at Axios.request (/opt/ai-agent/agent/node_modules/axios/dist/node/axios.cjs:4317:41)
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     at async notifyHub (/opt/ai-agent/agent/dist/api/index.js:477:9)
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     at async Timeout._onTimeout (/opt/ai-agent/agent/dist/api/index.js:507:9) {
+Jul 25 22:04:28 pve3 ai-agent[3462974]:   port: 3000,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:   address: '192.168.1.30',
+Jul 25 22:04:28 pve3 ai-agent[3462974]:   syscall: 'connect',
+Jul 25 22:04:28 pve3 ai-agent[3462974]:   code: 'ECONNREFUSED',
+Jul 25 22:04:28 pve3 ai-agent[3462974]:   errno: -111,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:   config: {
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     transitional: {
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       silentJSONParsing: true,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       forcedJSONParsing: true,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       clarifyTimeoutError: false
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     },
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     adapter: [ 'xhr', 'http', 'fetch' ],
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     transformRequest: [ [Function: transformRequest] ],
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     transformResponse: [ [Function: transformResponse] ],
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     timeout: 0,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     xsrfCookieName: 'XSRF-TOKEN',
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     xsrfHeaderName: 'X-XSRF-TOKEN',
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     maxContentLength: -1,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     maxBodyLength: -1,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     env: { FormData: [Function [FormData]], Blob: [class Blob] },
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     validateStatus: [Function: validateStatus],
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     headers: Object [AxiosHeaders] {
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       Accept: 'application/json, text/plain, */*',
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       'Content-Type': 'application/json',
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       'User-Agent': 'axios/1.11.0',
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       'Content-Length': '187',
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       'Accept-Encoding': 'gzip, compress, deflate, br'
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     },
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     method: 'post',
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     url: 'http://192.168.1.30:3000/api/notifications',
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     data: '{"type":"event","agentId":"$HOSTNAME-agent","timestamp":"2025-07-26T03:04:28.004Z","severity":"warning","message":"High memory usage: 89.0%","resource":"memory","value":89.03039556645342}',
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     allowAbsoluteUrls: true
+Jul 25 22:04:28 pve3 ai-agent[3462974]:   },
+Jul 25 22:04:28 pve3 ai-agent[3462974]:   request: <ref *1> Writable {
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     _events: {
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       close: undefined,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       error: [Function: handleRequestError],
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       prefinish: undefined,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       finish: undefined,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       drain: undefined,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       response: [Function: handleResponse],
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       socket: [Function: handleRequestSocket]
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     },
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     _writableState: WritableState {
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       highWaterMark: 16384,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       length: 0,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       corked: 0,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       onwrite: [Function: bound onwrite],
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       writelen: 0,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       bufferedIndex: 0,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       pendingcb: 0,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       [Symbol(kState)]: 17580812,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       [Symbol(kBufferedValue)]: null
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     },
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     _maxListeners: undefined,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     _options: {
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       maxRedirects: 21,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       maxBodyLength: Infinity,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       protocol: 'http:',
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       path: '/api/notifications',
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       method: 'POST',
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       headers: [Object: null prototype],
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       agents: [Object],
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       auth: undefined,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       family: undefined,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       beforeRedirect: [Function: dispatchBeforeRedirect],
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       beforeRedirects: [Object],
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       hostname: '192.168.1.30',
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       port: '3000',
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       agent: undefined,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       nativeProtocols: [Object],
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       pathname: '/api/notifications'
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     },
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     _ended: false,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     _ending: true,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     _redirectCount: 0,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     _redirects: [],
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     _requestBodyLength: 187,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     _requestBodyBuffers: [ [Object] ],
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     _eventsCount: 3,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     _onNativeResponse: [Function (anonymous)],
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     _currentRequest: ClientRequest {
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       _events: [Object: null prototype],
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       _eventsCount: 7,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       _maxListeners: undefined,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       outputData: [],
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       outputSize: 0,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       writable: true,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       destroyed: false,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       _last: false,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       chunkedEncoding: false,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       shouldKeepAlive: true,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       maxRequestsOnConnectionReached: false,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       _defaultKeepAlive: true,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       useChunkedEncodingByDefault: true,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       sendDate: false,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       _removedConnection: false,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       _removedContLen: false,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       _removedTE: false,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       strictContentLength: false,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       _contentLength: '187',
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       _hasBody: true,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       _trailer: '',
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       finished: false,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       _headerSent: true,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       _closed: false,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       socket: [Socket],
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       _header: 'POST /api/notifications HTTP/1.1\r\n' +
+Jul 25 22:04:28 pve3 ai-agent[3462974]:         'Accept: application/json, text/plain, */*\r\n' +
+Jul 25 22:04:28 pve3 ai-agent[3462974]:         'Content-Type: application/json\r\n' +
+Jul 25 22:04:28 pve3 ai-agent[3462974]:         'User-Agent: axios/1.11.0\r\n' +
+Jul 25 22:04:28 pve3 ai-agent[3462974]:         'Content-Length: 187\r\n' +
+Jul 25 22:04:28 pve3 ai-agent[3462974]:         'Accept-Encoding: gzip, compress, deflate, br\r\n' +
+Jul 25 22:04:28 pve3 ai-agent[3462974]:         'Host: 192.168.1.30:3000\r\n' +
+Jul 25 22:04:28 pve3 ai-agent[3462974]:         'Connection: keep-alive\r\n' +
+Jul 25 22:04:28 pve3 ai-agent[3462974]:         '\r\n',
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       _keepAliveTimeout: 0,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       _onPendingData: [Function: nop],
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       agent: [Agent],
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       socketPath: undefined,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       method: 'POST',
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       maxHeaderSize: undefined,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       insecureHTTPParser: undefined,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       joinDuplicateHeaders: undefined,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       path: '/api/notifications',
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       _ended: false,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       res: null,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       aborted: false,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       timeoutCb: [Function: emitRequestTimeout],
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       upgradeOrConnect: false,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       parser: null,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       maxHeadersCount: null,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       reusedSocket: false,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       host: '192.168.1.30',
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       protocol: 'http:',
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       _redirectable: [Circular *1],
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       [Symbol(shapeMode)]: false,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       [Symbol(kCapture)]: false,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       [Symbol(kBytesWritten)]: 0,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       [Symbol(kNeedDrain)]: false,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       [Symbol(corked)]: 0,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       [Symbol(kOutHeaders)]: [Object: null prototype],
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       [Symbol(errored)]: null,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       [Symbol(kHighWaterMark)]: 16384,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       [Symbol(kRejectNonStandardBodyWrites)]: false,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       [Symbol(kUniqueHeaders)]: null
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     },
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     _currentUrl: 'http://192.168.1.30:3000/api/notifications',
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     [Symbol(shapeMode)]: true,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     [Symbol(kCapture)]: false
+Jul 25 22:04:28 pve3 ai-agent[3462974]:   },
+Jul 25 22:04:28 pve3 ai-agent[3462974]:   cause: Error: connect ECONNREFUSED 192.168.1.30:3000
+Jul 25 22:04:28 pve3 ai-agent[3462974]:       at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1595:16) {
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     errno: -111,
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     code: 'ECONNREFUSED',
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     syscall: 'connect',
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     address: '192.168.1.30',
+Jul 25 22:04:28 pve3 ai-agent[3462974]:     port: 3000
+Jul 25 22:04:28 pve3 ai-agent[3462974]:   }
+Jul 25 22:04:28 pve3 ai-agent[3462974]: }

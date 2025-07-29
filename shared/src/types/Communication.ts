@@ -22,7 +22,13 @@ export enum MessageType {
   // Bidirectional
   AUTH_REQUEST = 'auth_request',
   AUTH_RESPONSE = 'auth_response',
-  ERROR = 'error'
+  ERROR = 'error',
+  
+  // AI/Knowledge Management
+  GET_README = 'get_readme',
+  README_RESPONSE = 'readme_response',
+  UPDATE_KNOWLEDGE = 'update_knowledge',
+  KNOWLEDGE_UPDATED = 'knowledge_updated'
 }
 
 export interface AuthRequest {
@@ -51,7 +57,6 @@ export interface EventNotification {
 export interface HubConfig {
   hubId: string;
   apiEndpoint: string;
-  wsEndpoint: string;
   publicKey: string;
   allowedAgents?: string[];
   commandTimeout: number;

@@ -1,0 +1,6 @@
+agent/node_modules
+hub/node_modules
+shared/node_modules
+agent/manager/node_modules
+agent-manager/node_modules
+hub-manager/node_modules

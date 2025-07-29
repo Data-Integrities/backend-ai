@@ -1,0 +1,151 @@
+{
+  "system": {
+    "name": "Backend AI Infrastructure Control",
+    "version": "2.1.38",
+    "description": "Central configuration for Backend AI hub, agents, and managers"
+  },
+  "anthropic": {
+    "apiKey": "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"
+  },
+  "hub": {
+    "ip": "192.168.1.30",
+    "port": 80,
+    "name": "backend-ai-hub",
+    "description": "Central command and control hub",
+    "paths": {
+      "installation": "/opt/backend-ai/hub"
+    },
+    "api": {
+      "basePath": "/api",
+      "guiPath": "/",
+      "pollingInterval": 30000,
+      "commandTimeout": 60000
+    }
+  },
+  "nas": {
+    "description": "NAS server for updates and authentication",
+    "ip": "192.168.1.10",
+    "port": 8888,
+    "updatePath": "/releases/backend-ai/agents/",
+    "authEndpoint": "/login"
+  },
+  "defaults": {
+    "agent": {
+      "port": 3080,
+      "installPath": "/opt/ai-agent/agent",
+      "serviceName": "ai-agent"
+    },
+    "manager": {
+      "port": 3081,
+      "installPath": "/opt/ai-agent/manager",
+      "serviceName": "ai-agent-manager"
+    },
+    "network": {
+      "httpTimeout": 5000,
+      "sshTimeout": 10000,
+      "retryAttempts": 3
+    },
+    "logging": {
+      "retentionDays": 5,
+      "useLocalDirectory": true
+    }
+  },
+  "serviceManagers": {
+    "systemd": {
+      "description": "Standard Linux systemd/systemctl",
+      "commands": {
+        "start": "service {service} start",
+        "stop": "service {service} stop",
+        "restart": "service {service} restart",
+        "status": "service {service} status",
+        "enable": "systemctl enable {service}",
+        "disable": "systemctl disable {service}"
+      },
+      "nodePath": "/usr/bin/node",
+      "logCommand": "journalctl -u {service} --no-pager"
+    },
+    "rc.d": {
+      "description": "FreeBSD/Unraid rc.d system",
+      "commands": {
+        "start": "/etc/rc.d/rc.{service} start",
+        "stop": "/etc/rc.d/rc.{service} stop",
+        "restart": "/etc/rc.d/rc.{service} restart",
+        "status": "/etc/rc.d/rc.{service} status"
+      },
+      "nodePath": "/usr/local/bin/node",
+      "logCommand": "tail -n 100 {logPath}"
+    }
+  },
+  "agents": [
+    {
+      "name": "nginx",
+      "ip": "192.168.1.2",
+      "description": "NGINX reverse proxy and web server",
+      "serviceManager": "systemd",
+      "systemType": "ubuntu",
+      "accessUser": "root",
+      "aliases": ["nginx", "forwarder", "dns router", "web server"],
+      "capabilities": {
+        "nginx": true,
+        "reverseProxy": true,
+        "webServer": true
+      }
+    },
+    {
+      "name": "pve1",
+      "ip": "192.168.1.5",
+      "description": "Proxmox VE hypervisor node 1",
+      "serviceManager": "systemd",
+      "systemType": "debian",
+      "accessUser": "root",
+      "aliases": ["proxmox", "hypervisor", "vm host", "pve1"],
+      "capabilities": {
+        "virtualization": true,
+        "containers": true,
+        "proxmox": true
+      }
+    },
+    {
+      "name": "pve2",
+      "ip": "192.168.1.6",
+      "description": "Proxmox VE hypervisor node 2",
+      "serviceManager": "systemd",
+      "systemType": "debian",
+      "accessUser": "root",
+      "aliases": ["proxmox", "hypervisor", "vm host", "pve2"],
+      "capabilities": {
+        "virtualization": true,
+        "containers": true,
+        "proxmox": true
+      }
+    },
+    {
+      "name": "pve3",
+      "ip": "192.168.1.7",
+      "description": "Proxmox VE hypervisor node 3",
+      "serviceManager": "systemd",
+      "systemType": "debian",
+      "accessUser": "root",
+      "aliases": ["proxmox", "hypervisor", "vm host", "pve3"],
+      "capabilities": {
+        "virtualization": true,
+        "containers": true,
+        "proxmox": true
+      }
+    },
+    {
+      "name": "unraid",
+      "ip": "192.168.1.10",
+      "description": "Unraid NAS and Docker host",
+      "serviceManager": "rc.d",
+      "systemType": "unraid",
+      "accessUser": "root",
+      "aliases": ["unraid", "nas", "storage", "file server"],
+      "capabilities": {
+        "docker": true,
+        "storage": true,
+        "nas": true
+      }
+    }
+  ]
+}

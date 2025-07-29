@@ -6,7 +6,7 @@ I've built a complete AI-powered remote control system for Proxmox infrastructur
 ## Architecture Overview
 ```
 backend-ai/
-├── hub/                    # Central AI command hub (Express + WebSocket)
+├── hub/                    # Central AI command hub (Express + HTTP API)
 ├── agent/                  # Linux agent for containers/VMs
 ├── agent-proxmox/          # Proxmox management agent with API integration
 ├── agent-windows/          # (Planned) Windows build machine agent
@@ -18,7 +18,7 @@ backend-ai/
 
 ### 1. Natural Language Command Processing
 - Hub uses Claude AI to interpret commands like "restart the web server"
-- Commands are routed to appropriate agents via WebSocket
+- Commands are routed to appropriate agents via HTTP polling
 - Risk assessment and confirmation for dangerous operations
 
 ### 2. Linux Agent (Runs in Containers/VMs)
@@ -77,7 +77,7 @@ We want to extend the Proxmox agent to deploy Linux agents INSIDE VMs and contai
 - Handling different network configurations
 
 ## Current Authentication Model
-- Hub ↔ Agent: JWT tokens + WebSocket
+- Hub ↔ Agent: JWT tokens + HTTP polling
 - Proxmox API: username/password auth
 - SSH between nodes: key-based (assumes Proxmox cluster SSH keys)
 

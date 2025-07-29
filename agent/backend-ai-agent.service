@@ -1,0 +1,16 @@
+[Unit]
+Description=Backend AI Agent
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/ai-agent/agent
+ExecStart=/usr/bin/node /opt/ai-agent/agent/dist/api/index.js
+Restart=always
+RestartSec=10
+StandardOutput=append:/var/log/backend-ai-agent.log
+StandardError=append:/var/log/backend-ai-agent.log
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+  <!-- Letter H for Hub -->
+  <rect width="32" height="32" rx="6" fill="#1e40af"/>
+  
+  <!-- Letter H -->
+  <path d="M 8 8 L 8 24 L 12 24 L 12 18 L 20 18 L 20 24 L 24 24 L 24 8 L 20 8 L 20 14 L 12 14 L 12 8 Z" fill="#dbeafe"/>
+</svg>

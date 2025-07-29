@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Container version="2">
+  <Name>ai-agent</Name>
+  <Repository>ai-agent:http</Repository>
+  <Registry>local</Registry>
+  <Network>bridge</Network>
+  <MyIP/>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/yourusername/ai-agent</Support>
+  <Project>https://github.com/yourusername/ai-agent</Project>
+  <Overview>AI Agent for infrastructure management - HTTP polling version</Overview>
+  <Category>Tools: Network:Management</Category>
+  <WebUI>http://[IP]:[PORT:3080]/</WebUI>
+  <TemplateURL/>
+  <Icon>https://raw.githubusercontent.com/yourusername/ai-agent/main/icon.png</Icon>
+  <ExtraParams/>
+  <PostArgs/>
+  <CPUset/>
+  <DateInstalled>1721766000</DateInstalled>
+  <DonateText/>
+  <DonateLink/>
+  <Description>AI-powered agent for infrastructure management with HTTP polling architecture</Description>
+  <Networking>
+    <Mode>bridge</Mode>
+    <Publish>
+      <Port>
+        <HostPort>3080</HostPort>
+        <ContainerPort>3080</ContainerPort>
+        <Protocol>tcp</Protocol>
+      </Port>
+    </Publish>
+  </Networking>
+  <Data>
+    <Volume>
+      <HostDir>/mnt/user/appdata/ai-agent</HostDir>
+      <ContainerDir>/config</ContainerDir>
+      <Mode>rw</Mode>
+    </Volume>
+    <Volume>
+      <HostDir>/var/run/docker.sock</HostDir>
+      <ContainerDir>/var/run/docker.sock</ContainerDir>
+      <Mode>rw</Mode>
+    </Volume>
+    <Volume>
+      <HostDir>/mnt</HostDir>
+      <ContainerDir>/mnt</ContainerDir>
+      <Mode>rw</Mode>
+    </Volume>
+    <Volume>
+      <HostDir>/boot</HostDir>
+      <ContainerDir>/boot</ContainerDir>
+      <Mode>rw</Mode>
+    </Volume>
+  </Data>
+  <Environment>
+    <Variable>
+      <Value>3080</Value>
+      <Name>PORT</Name>
+      <Mode/>
+    </Variable>
+    <Variable>
+      <Value>unraid-agent</Value>
+      <Name>AGENT_ID</Name>
+      <Mode/>
+    </Variable>
+    <Variable>
+      <Value>production</Value>
+      <Name>NODE_ENV</Name>
+      <Mode/>
+    </Variable>
+  </Environment>
+  <Labels/>
+  <Config Name="Web Port" Target="3080" Default="3080" Mode="tcp" Description="Container Port: 3080" Type="Port" Display="always" Required="true" Mask="false">3080</Config>
+  <Config Name="Config" Target="/config" Default="/mnt/user/appdata/ai-agent" Mode="rw" Description="Container Path: /config" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/ai-agent</Config>
+  <Config Name="Docker Socket" Target="/var/run/docker.sock" Default="/var/run/docker.sock" Mode="rw" Description="Docker socket for container management" Type="Path" Display="always" Required="true" Mask="false">/var/run/docker.sock</Config>
+  <Config Name="Agent ID" Target="AGENT_ID" Default="unraid-agent" Mode="" Description="Unique identifier for this agent" Type="Variable" Display="always" Required="true" Mask="false">unraid-agent</Config>
+</Container>

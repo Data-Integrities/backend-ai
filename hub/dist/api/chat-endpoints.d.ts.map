@@ -1,0 +1,1 @@
+{"version":3,"file":"chat-endpoints.d.ts","sourceRoot":"","sources":["../../api/chat-endpoints.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,OAAO,EAAE,MAAM,SAAS,CAAC;AAClC,OAAO,EAAE,UAAU,EAAE,MAAM,eAAe,CAAC;AAE3C,QAAA,IAAI,UAAU,EAAE,UAAU,CAAC;AAE3B,wBAAgB,kBAAkB,CAAC,GAAG,EAAE,OAAO,QAiI9C;AAED,OAAO,EAAE,UAAU,EAAE,CAAC"}

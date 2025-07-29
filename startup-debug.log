@@ -1,0 +1,3 @@
+Jul 26 02:50:34 nginx ai-agent[849547]: Enhanced HTTP Agent -agent listening on port 3080
+Jul 26 02:50:34 nginx ai-agent[849547]: Hub URL: http://192.168.1.30
+Jul 26 02:50:34 nginx ai-agent[849547]: Features: Authentication, Service Discovery, Command Parsing, Event Notifications

@@ -1,34 +1,41 @@
 {
   "name": "@proxmox-ai-control/hub",
-  "version": "1.0.0",
+  "version": "2.1.38",
   "description": "AI Command Hub for Proxmox infrastructure management",
-  "main": "dist/index.js",
+  "main": "dist/api/index.js",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/index.js",
-    "dev": "ts-node src/index.ts",
+    "start": "node dist/api/index.js",
+    "dev": "ts-node api/index.ts",
     "watch": "tsc --watch"
   },
-  "keywords": ["proxmox", "ai", "hub", "control"],
+  "keywords": [
+    "proxmox",
+    "ai",
+    "hub",
+    "control"
+  ],
   "author": "Jeff Kelling",
   "license": "MIT",
   "dependencies": {
-    "@proxmox-ai-control/shared": "file:../shared",
     "@anthropic-ai/sdk": "^0.56.0",
+    "@proxmox-ai-control/shared": "file:../shared",
+    "@types/multer": "^2.0.0",
+    "@types/uuid": "^10.0.0",
     "axios": "^1.6.0",
     "cors": "^2.8.5",
     "dotenv": "^16.0.0",
     "express": "^4.18.0",
     "jsonwebtoken": "^9.0.0",
-    "winston": "^3.11.0",
-    "ws": "^8.16.0"
+    "multer": "^2.0.2",
+    "uuid": "^11.1.0",
+    "winston": "^3.11.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.0",
     "@types/express": "^4.17.0",
     "@types/jsonwebtoken": "^9.0.0",
-    "@types/node": "^20.0.0",
-    "@types/ws": "^8.5.0",
+    "@types/node": "^20.19.9",
     "ts-node": "^10.0.0",
     "typescript": "^5.0.0"
   }

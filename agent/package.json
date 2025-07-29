@@ -1,32 +1,28 @@
 {
-  "name": "@proxmox-ai-control/agent",
-  "version": "1.0.0",
-  "description": "AI-powered agent for remote server management",
-  "main": "dist/index.js",
+  "name": "@backend-ai/agent",
+  "version": "2.1.38",
+  "description": "Backend AI Agent - HTTP-only implementation",
+  "main": "dist/api/index.js",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/index.js",
-    "dev": "ts-node src/index.ts",
-    "watch": "tsc --watch",
-    "install-service": "node dist/install-service.js"
+    "start": "node dist/api/index.js",
+    "dev": "nodemon src/api/index.ts",
+    "clean": "rm -rf dist"
   },
-  "keywords": ["proxmox", "ai", "agent", "remote-control"],
-  "author": "Jeff Kelling",
-  "license": "MIT",
   "dependencies": {
-    "@proxmox-ai-control/shared": "file:../shared",
-    "axios": "^1.6.0",
-    "dotenv": "^16.0.0",
-    "node-cron": "^3.0.0",
-    "systeminformation": "^5.21.0",
-    "winston": "^3.11.0",
-    "ws": "^8.16.0"
+    "express": "^4.18.2",
+    "dotenv": "^16.0.3",
+    "axios": "^1.4.0",
+    "systeminformation": "^5.18.0",
+    "uuid": "^9.0.0",
+    "@anthropic-ai/sdk": "^0.56.0",
+    "@proxmox-ai-control/shared": "file:../shared"
   },
   "devDependencies": {
+    "@types/express": "^4.17.17",
     "@types/node": "^20.0.0",
-    "@types/node-cron": "^3.0.0",
-    "@types/ws": "^8.5.0",
-    "ts-node": "^10.0.0",
-    "typescript": "^5.0.0"
+    "@types/uuid": "^9.0.0",
+    "typescript": "^5.0.0",
+    "nodemon": "^3.0.0"
   }
 }

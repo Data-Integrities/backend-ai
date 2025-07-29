@@ -1,0 +1,161 @@
+#!/bin/bash
+#
+# AI Agent Manager for Unraid
+# /etc/rc.d/rc.ai-agent-manager
+#
+# This script manages the AI Agent Manager service on Unraid
+# The manager in turn controls the AI Agent
+#
+
+MANAGER_DIR="/opt/ai-agent/manager"
+NODE_BIN="/usr/local/bin/node"
+PIDFILE="/var/run/ai-agent-manager.pid"
+LOGFILE="/var/log/ai-agent-manager.log"
+
+# Source Unraid functions if available
+[ -f /etc/rc.d/rc.functions ] && . /etc/rc.d/rc.functions
+
+start() {
+    echo "Starting AI Agent Manager..."
+    
+    # Check if already running
+    if [ -f "$PIDFILE" ]; then
+        PID=$(cat "$PIDFILE")
+        if ps -p "$PID" > /dev/null 2>&1; then
+            echo "AI Agent Manager is already running (PID: $PID)"
+            return 1
+        else
+            # Stale pidfile
+            rm -f "$PIDFILE"
+        fi
+    fi
+    
+    # Clear port 3081 if something is using it
+    PORT_PID=$(lsof -ti:3081 2>/dev/null)
+    if [ -n "$PORT_PID" ]; then
+        echo "Port 3081 is in use by PID $PORT_PID, clearing it..."
+        kill -9 "$PORT_PID" 2>/dev/null || true
+        sleep 1
+    fi
+    
+    # Start the manager
+    cd "$MANAGER_DIR"
+    nohup "$NODE_BIN" dist/index.js >> "$LOGFILE" 2>&1 &
+    PID=$!
+    echo $PID > "$PIDFILE"
+    
+    # Check if it started successfully
+    sleep 2
+    if ps -p "$PID" > /dev/null 2>&1; then
+        echo "AI Agent Manager started successfully (PID: $PID)"
+        return 0
+    else
+        echo "Failed to start AI Agent Manager"
+        rm -f "$PIDFILE"
+        return 1
+    fi
+}
+
+stop() {
+    echo "Stopping AI Agent Manager..."
+    
+    # First, try to stop via pidfile
+    if [ -f "$PIDFILE" ]; then
+        PID=$(cat "$PIDFILE")
+        if ps -p "$PID" > /dev/null 2>&1; then
+            kill "$PID"
+            
+            # Wait for graceful shutdown
+            for i in {1..10}; do
+                if ! ps -p "$PID" > /dev/null 2>&1; then
+                    break
+                fi
+                sleep 1
+            done
+            
+            # Force kill if still running
+            if ps -p "$PID" > /dev/null 2>&1; then
+                echo "Force killing AI Agent Manager..."
+                kill -9 "$PID" 2>/dev/null || true
+            fi
+            
+            rm -f "$PIDFILE"
+        else
+            echo "AI Agent Manager is not running (stale pidfile)"
+            rm -f "$PIDFILE"
+        fi
+    fi
+    
+    # Always ensure ALL manager processes are stopped (including rogue ones)
+    PIDS=$(pgrep -f "node.*ai-agent/manager/dist/index.js" 2>/dev/null || true)
+    if [ -n "$PIDS" ]; then
+        echo "Cleaning up remaining manager processes: $PIDS"
+        kill $PIDS 2>/dev/null || true
+        sleep 2
+        # Force kill if needed
+        PIDS=$(pgrep -f "node.*ai-agent/manager/dist/index.js" 2>/dev/null || true)
+        if [ -n "$PIDS" ]; then
+            kill -9 $PIDS 2>/dev/null || true
+        fi
+    fi
+    
+    echo "AI Agent Manager stopped"
+}
+
+status() {
+    if [ -f "$PIDFILE" ]; then
+        PID=$(cat "$PIDFILE")
+        if ps -p "$PID" > /dev/null 2>&1; then
+            echo "AI Agent Manager is running (PID: $PID)"
+            # Check if responding
+            if curl -s -f "http://localhost:3081/status" > /dev/null 2>&1; then
+                echo "Manager API is responding on port 3081"
+            else
+                echo "Warning: Manager process is running but API is not responding"
+            fi
+            return 0
+        else
+            echo "AI Agent Manager is not running (stale pidfile)"
+            rm -f "$PIDFILE"
+            return 1
+        fi
+    else
+        # Check if running without pidfile
+        PIDS=$(pgrep -f "node.*ai-agent/manager/dist/index.js")
+        if [ -n "$PIDS" ]; then
+            echo "AI Agent Manager is running without pidfile (PIDs: $PIDS)"
+            return 0
+        else
+            echo "AI Agent Manager is not running"
+            return 1
+        fi
+    fi
+}
+
+restart() {
+    stop
+    sleep 2
+    start
+}
+
+# Main logic
+case "$1" in
+    start)
+        start
+        ;;
+    stop)
+        stop
+        ;;
+    status)
+        status
+        ;;
+    restart)
+        restart
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|status|restart}"
+        exit 1
+        ;;
+esac
+
+exit 0

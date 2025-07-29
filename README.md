@@ -11,25 +11,38 @@ Backend AI transforms infrastructure management from command-line complexity to 
 - "Move the database VM to a less busy node"
 - "Install monitoring on all production containers"
 
+## ⚠️ CRITICAL INVARIANTS - NEVER VIOLATE THESE
+
+1. **HUB ALWAYS RUNS ON PORT 80** (192.168.1.30:80)
+2. **ALL AGENTS ALWAYS RUN ON PORT 3080** (*.*.*.X:3080)
+3. **NO WEBSOCKETS** - Everything uses HTTP REST APIs only
+4. **Hub → Agent**: HTTP requests to agent:3080/api/*
+5. **Agent → Hub**: HTTP requests to hub:80/api/*
+6. **Polling**: Hub polls agents every 30s via HTTP
+7. **Agents are stateless** - They only respond to HTTP requests
+
 ## 🏗️ Architecture
 
 ```
 ┌─────────────────────────┐
 │   AI Command Hub        │ ← Natural language commands
-│  (Master Controller)    │ ← Web UI + API
+│  (Port 80 - Web/API)    │ ← HTTP Polling Architecture
 └────────┬────────────────┘
-         │ WebSocket/gRPC
+         │ HTTP Poll every 30s
     ┌────┴────┬──────────┬──────────┐
     │         │          │          │
 ┌───▼───┐ ┌──▼───┐ ┌────▼───┐ ┌────▼───┐
-│ PVE1  │ │ PVE2 │ │  PVE3  │ │  ...   │
-└───┬───┘ └──┬───┘ └────┬───┘ └────┬───┘
-    │        │          │          │
-┌───▼───┐ ┌──▼───┐ ┌────▼───┐ ┌────▼───┐
 │Agent  │ │Agent │ │ Agent  │ │ Agent  │
-│(CT100)│ │(VM101)│ │(CT102) │ │(VM103) │
+│:3080  │ │:3080 │ │ :3080  │ │ :3080  │
 └───────┘ └──────┘ └────────┘ └────────┘
+   Native   Native    Docker     Native
+   (Linux)  (PVE)   (Unraid)   (Linux)
 ```
+
+**Key Architecture Decisions:**
+- Hub runs on port 80, agents on port 3080
+- HTTP polling (not WebSocket) - agents never initiate connections
+- Different deployment methods based on OS (see [Agent Installation Architecture](./AGENT_INSTALLATION_ARCHITECTURE.md))
 
 ### Components
 
@@ -38,13 +51,13 @@ The central brain that processes natural language commands using Claude AI and o
 
 **Features:**
 - Natural language processing with Claude AI
-- WebSocket server for real-time agent communication
+- HTTP polling architecture for agent communication
 - REST API for external integrations
 - Web UI for monitoring and control
 - Command risk assessment and confirmation
 - Automatic agent discovery and health monitoring
 
-**Tech Stack:** TypeScript, Express.js, WebSocket, Claude API
+**Tech Stack:** TypeScript, Express.js, Claude API
 
 #### 🤖 Linux Agent (`/agent`)
 Lightweight agent that runs on Linux servers, containers, and VMs to execute commands safely.
@@ -91,38 +104,52 @@ TypeScript type definitions shared across all components.
 
 ## 🚀 Quick Start
 
-### 1. Start the Hub
+### 1. Deploy the Hub
+
+The hub is deployed on 192.168.1.30 and runs on port 80:
 
 ```bash
+# On your development machine
 cd hub
-cp .env.example .env
-# Edit .env and add your ANTHROPIC_API_KEY
-npm install
-npm run dev
+npm run build
+./deploy-hub.sh
 ```
 
-The hub will start on:
-- API: http://localhost:3000
-- WebSocket: ws://localhost:3001
-- Web UI: http://localhost:3000
+The hub provides:
+- Web UI: http://192.168.1.30
+- API: http://192.168.1.30/api/
+- Health: http://192.168.1.30/health
 
-### 2. Install Agents
+### 2. Deploy Agents
 
-#### Linux Agent (on any Linux server/container)
+**⚠️ IMPORTANT**: Different systems require different deployment methods!  
+See [Agent Deployment Quick Reference](./AGENT_DEPLOYMENT_QUICKREF.md) for details.
+
+#### For Linux/Proxmox Systems (Native)
 ```bash
-curl -sSL http://your-hub:3000/install-agent.sh | sudo HUB_URL=ws://your-hub:3001 bash
+# Deploy to nginx server
+./deploy-agent-v2.sh nginx root
+
+# Deploy to all Proxmox hosts
+for host in pve1 pve2 pve3; do
+    ./deploy-agent-v2.sh $host root
+done
 ```
 
-#### Proxmox Agent (on Proxmox host)
+#### For Unraid (Docker)
 ```bash
-cd agent-proxmox
-npm install && npm run build
-sudo ./install-proxmox-agent.sh
+# Deploy via Docker
+./deploy-agent-unraid-docker.sh unraid
 ```
 
-Then use natural language to deploy to other nodes:
-```
-"Install the agent on all Proxmox nodes"
+### 3. Verify Deployment
+
+```bash
+# Check hub status
+curl -s http://192.168.1.30/api/agents | jq '.'
+
+# Check specific agent
+curl -s http://192.168.1.2:3080/api/status | jq '.'
 ```
 
 ## 💬 Example Commands
@@ -237,8 +264,7 @@ Commands can include conditions:
 ### Hub Configuration (.env)
 ```env
 # API Configuration
-PORT=3000
-WS_PORT=3001
+PORT=80
 
 # AI Configuration
 ANTHROPIC_API_KEY=your-api-key
@@ -254,8 +280,19 @@ PVE1_USERNAME=root@pam
 PVE1_PASSWORD=secure-password
 ```
 
+### ⚠️ Important Deployment Notes
+
+- **API Key Management**: The Anthropic API key should be securely stored and configured on both hub and agents
+- **Port Configuration**: Hub runs on port 80, all agents run on port 3080
+- **Network Architecture**: Hub polls agents via HTTP - agents never initiate connections
+- **Deployment Methods**: Native for Linux/Proxmox, Docker for Unraid/Windows
+- **Documentation**: 
+  - [Agent Installation Architecture](./AGENT_INSTALLATION_ARCHITECTURE.md) - Detailed explanation
+  - [Agent Deployment Quick Reference](./AGENT_DEPLOYMENT_QUICKREF.md) - Quick commands
+  - [Deployment Guide](./DEPLOYMENT_GUIDE.md) - Decision flowchart
+
 ### Agent Configuration
-Agents are configured during installation or via `/etc/ai-agent/agent.env`
+Agents are automatically configured during deployment with appropriate settings for their OS
 
 ## 📚 API Reference
 
@@ -276,13 +313,13 @@ GET /api/command/:id/results
 Get results of a specific command execution
 ```
 
-### WebSocket Events
+### HTTP API Messages
 
-Agents connect via WebSocket and exchange typed messages:
-- `command_request` - Hub → Agent command
-- `command_result` - Agent → Hub result
-- `agent_heartbeat` - Periodic health check
-- `event_notification` - Agent → Hub alerts
+Agents are polled via HTTP and exchange typed messages:
+- `command_request` - Hub → Agent command via polling
+- `command_result` - Agent → Hub result via polling response
+- `agent_heartbeat` - Periodic health check via polling
+- `event_notification` - Agent → Hub alerts via notification endpoint
 
 ## 🤝 Contributing
 

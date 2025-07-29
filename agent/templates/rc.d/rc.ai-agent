@@ -1,0 +1,134 @@
+#!/bin/bash
+#
+# AI Agent for Unraid
+# /etc/rc.d/rc.ai-agent
+#
+# This script manages the AI Agent service on Unraid
+#
+
+AGENT_DIR="/opt/ai-agent/agent"
+NODE_BIN="/usr/local/bin/node"
+PIDFILE="/var/run/ai-agent.pid"
+LOGFILE="/var/log/backend-ai-agent.log"
+AGENT_NAME="AGENT_NAME_PLACEHOLDER"
+CONFIG_PATH="/opt/backend-ai-config.json"
+
+# Source Unraid functions if available
+[ -f /etc/rc.d/rc.functions ] && . /etc/rc.d/rc.functions
+
+start() {
+    echo "Starting AI Agent..."
+    
+    # Check if already running
+    if [ -f "$PIDFILE" ]; then
+        PID=$(cat "$PIDFILE")
+        if ps -p "$PID" > /dev/null 2>&1; then
+            echo "AI Agent is already running (PID: $PID)"
+            return 1
+        else
+            # Stale pidfile
+            rm -f "$PIDFILE"
+        fi
+    fi
+    
+    # Set up environment and start
+    cd "$AGENT_DIR"
+    export AGENT_NAME="$AGENT_NAME"
+    export CONFIG_PATH="$CONFIG_PATH"
+    export NODE_ENV="production"
+    
+    # Start the agent
+    nohup "$NODE_BIN" "$AGENT_DIR/dist/api/index.js" > "$LOGFILE" 2>&1 &
+    PID=$!
+    echo $PID > "$PIDFILE"
+    
+    # Verify it started
+    sleep 2
+    if ps -p "$PID" > /dev/null 2>&1; then
+        echo "AI Agent started successfully (PID: $PID)"
+        return 0
+    else
+        echo "AI Agent failed to start"
+        rm -f "$PIDFILE"
+        tail -20 "$LOGFILE"
+        return 1
+    fi
+}
+
+stop() {
+    echo "Stopping AI Agent..."
+    
+    if [ -f "$PIDFILE" ]; then
+        PID=$(cat "$PIDFILE")
+        if ps -p "$PID" > /dev/null 2>&1; then
+            kill "$PID"
+            
+            # Wait for process to stop
+            for i in {1..10}; do
+                if ! ps -p "$PID" > /dev/null 2>&1; then
+                    break
+                fi
+                sleep 1
+            done
+            
+            # Force kill if still running
+            if ps -p "$PID" > /dev/null 2>&1; then
+                kill -9 "$PID"
+            fi
+            
+            rm -f "$PIDFILE"
+            echo "AI Agent stopped"
+        else
+            echo "AI Agent is not running (stale pidfile)"
+            rm -f "$PIDFILE"
+        fi
+    else
+        echo "AI Agent is not running"
+    fi
+}
+
+status() {
+    if [ -f "$PIDFILE" ]; then
+        PID=$(cat "$PIDFILE")
+        if ps -p "$PID" > /dev/null 2>&1; then
+            echo "AI Agent is running (PID: $PID)"
+            
+            # Check if API is responding
+            if curl -s http://localhost:3080/api/status > /dev/null 2>&1; then
+                echo "Agent API is responding on port 3080"
+            else
+                echo "Warning: Agent process is running but API is not responding"
+            fi
+            return 0
+        else
+            echo "AI Agent is not running (stale pidfile)"
+            return 1
+        fi
+    else
+        echo "AI Agent is not running"
+        return 1
+    fi
+}
+
+case "$1" in
+    start)
+        start
+        ;;
+    stop)
+        stop
+        ;;
+    restart)
+        stop
+        sleep 2
+        start
+        ;;
+    status)
+        status
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart|status}"
+        exit 1
+        ;;
+esac
+
+exit $?

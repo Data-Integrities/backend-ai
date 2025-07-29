@@ -1,0 +1,23 @@
+[Unit]
+Description=Backend AI Agent
+After=network.target ai-agent-manager.service
+Wants=ai-agent-manager.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/ai-agent/agent
+Environment="NODE_ENV=production"
+Environment="AGENT_NAME=AGENT_NAME_PLACEHOLDER"
+Environment="CONFIG_PATH=/opt/backend-ai-config.json"
+ExecStart=/usr/bin/node /opt/ai-agent/agent/dist/api/index.js
+Restart=always
+RestartSec=10
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ai-agent
+
+[Install]
+WantedBy=multi-user.target

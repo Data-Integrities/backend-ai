@@ -1,0 +1,24 @@
+[Unit]
+Description=AI Agent Manager
+After=network.target
+Before=ai-agent.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/ai-agent/manager
+Environment="NODE_ENV=production"
+Environment="AGENT_NAME=AGENT_NAME_PLACEHOLDER"
+Environment="CONFIG_PATH=/opt/backend-ai-config.json"
+ExecStart=/usr/bin/node /opt/ai-agent/manager/dist/index.js
+ExecStartPost=/bin/bash -c 'for i in {1..60}; do if curl -s http://localhost:3081/status >/dev/null 2>&1; then if [ -n "$CORRELATION_ID" ]; then HUB_URL=$(jq -r ".hub.ip + \":\" + (.hub.port|tostring)" /opt/backend-ai-config.json 2>/dev/null) && curl -X POST http://$HUB_URL/api/executions/$CORRELATION_ID/complete -H "Content-Type: application/json" -d "{\"result\":\"Manager started successfully after $((i*2)) seconds\"}" || true; fi; exit 0; fi; sleep 2; done; if [ -n "$CORRELATION_ID" ]; then HUB_URL=$(jq -r ".hub.ip + \":\" + (.hub.port|tostring)" /opt/backend-ai-config.json 2>/dev/null) && curl -X POST http://$HUB_URL/api/executions/$CORRELATION_ID/fail -H "Content-Type: application/json" -d "{\"error\":\"Manager API not responding after 120 seconds\"}" || true; fi; exit 1'
+Restart=always
+RestartSec=5
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ai-agent-manager
+
+[Install]
+WantedBy=multi-user.target

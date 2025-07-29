@@ -538,8 +538,8 @@ cp -r shared $TEMP_DIR/ai-agent/agent/node_modules/@proxmox-ai-control/shared
 cp -r shared $TEMP_DIR/ai-agent/manager/node_modules/@proxmox-ai-control/shared
 
 # Copy systemd service files and wrapper scripts
-cp agent/templates/*.service $TEMP_DIR/systemd/
-cp agent/templates/*.sh $TEMP_DIR/systemd/ 2>/dev/null || true
+cp agent/templates/systemd/*.service $TEMP_DIR/systemd/
+cp agent/templates/systemd/*.sh $TEMP_DIR/systemd/ 2>/dev/null || true
 
 # Copy rc.d files and wrapper scripts for FreeBSD/unraid
 if [ -d "agent/templates/rc.d" ]; then

@@ -27,7 +27,7 @@ try {
 }
 
 const PORT = configLoader.getManagerPort();
-const MANAGER_VERSION = '2.1.38'; // TODO: Get from package.json
+const MANAGER_VERSION = config.system.version || 'unknown';
 
 app.use(express.json());
 
@@ -253,7 +253,7 @@ async function notifyHubCompletion(correlationId: string, result: any) {
     }
 }
 
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, '0.0.0.0', async () => {
     console.log(`Agent manager listening on port ${PORT}`);
     console.log('Available endpoints:');
     console.log('  GET  /status  - Check agent status');
@@ -262,4 +262,25 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log('  POST /restart - Restart agent (with optional correlationId)');
     console.log('  GET  /version - Get agent version');
     console.log('  GET  /logs    - Get agent logs');
+    
+    // Check if we were started with a correlationId
+    const correlationId = process.env.CORRELATION_ID;
+    if (correlationId) {
+        console.log(`Manager started with correlationId: ${correlationId}`);
+        // Send callback to hub that manager has started successfully
+        try {
+            await axios.post(
+                `${HUB_URL}/api/executions/${correlationId}/complete`,
+                { 
+                    result: `Manager started successfully on ${myAgent.name}`,
+                    agentId: myAgent.name,
+                    detectedBy: 'manager-startup'
+                },
+                { timeout: 5000 }
+            );
+            console.log(`Notified hub of manager startup completion`);
+        } catch (error) {
+            console.error(`Failed to notify hub of manager startup:`, error);
+        }
+    }
 });

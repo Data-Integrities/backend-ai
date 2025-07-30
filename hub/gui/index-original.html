@@ -6,16 +6,18 @@
     <meta http-equiv="cache-control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="pragma" content="no-cache">
     <meta http-equiv="expires" content="0">
-    <title>Infrastructure AI Hub</title>
+    <title>Infrastructure AI Hub (v2.1.44)</title>
+    <script>console.log('CACHE BUST: Loading v2.1.44 with Alpine.js and Shoelace at', new Date().toISOString());</script>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&display=swap" rel="stylesheet">
     
-    <!-- Alpine.js - Added but not yet used -->
+    <!-- Alpine.js -->
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     
-    <!-- Shoelace - Added but not yet used -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.11.2/cdn/themes/dark.css" />
-    <script type="module" src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.11.2/cdn/shoelace-autoloader.js"></script>
+    <!-- Shoelace -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.15.0/cdn/themes/dark.css" />
+    <script type="module" src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.15.0/cdn/shoelace-autoloader.js"></script>
+    
     <style>
         * {
             margin: 0;
@@ -147,12 +149,6 @@
         
         .dropdown-item:hover {
             background: var(--bg-secondary);
-        }
-        
-        .dropdown-divider {
-            height: 1px;
-            background: var(--border-color);
-            margin: 4px 0;
         }
         
         .agent-item {
@@ -486,6 +482,10 @@
             padding: 12px 16px;
             border-radius: 12px;
             border: 1px solid var(--border-color);
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            white-space: pre-wrap;
+            position: relative;
         }
         
         .message.user .message-content {
@@ -530,18 +530,22 @@
         
         /* Error details styles */
         .error-details-btn {
-            background: none;
-            border: none;
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: rgba(231, 76, 60, 0.1);
+            border: 1px solid rgba(231, 76, 60, 0.3);
             cursor: pointer;
             padding: 2px 6px;
-            margin-left: 8px;
             border-radius: 4px;
             font-size: 14px;
-            transition: background 0.2s;
+            transition: all 0.2s;
+            z-index: 10;
         }
         
         .error-details-btn:hover {
-            background: rgba(231, 76, 60, 0.1);
+            background: rgba(231, 76, 60, 0.2);
+            border-color: rgba(231, 76, 60, 0.5);
         }
         
         .error-details {
@@ -553,8 +557,16 @@
             font-family: monospace;
             font-size: 12px;
             color: #e74c3c;
+            overflow-x: auto;
+            overflow-y: hidden;
+            max-width: 100%;
+        }
+        
+        .error-details pre {
+            margin: 0;
             white-space: pre-wrap;
-            word-break: break-all;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
         }
         
         /* Markdown tabs */
@@ -977,25 +989,6 @@
             padding: 4px;
         }
         
-        .btn {
-            padding: 8px 16px;
-            border-radius: 4px;
-            border: none;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            transition: all 0.2s;
-        }
-        
-        .btn-primary {
-            background: var(--primary);
-            color: white;
-        }
-        
-        .btn-primary:hover {
-            background: var(--primary-hover);
-        }
-        
         .modal-body {
             flex: 1;
             overflow-y: auto;
@@ -1199,7 +1192,7 @@
     </style>
 </head>
 <body>
-    <div class="app-container">
+    <div class="app-container" x-data="hubApp()" x-init="init()">
         <!-- Sidebar -->
         <div class="sidebar">
             <div class="sidebar-header">
@@ -1209,18 +1202,15 @@
             <div class="agents-section">
                 <h3>
                     Connected Agents
-                    <div class="hamburger-menu" x-data="{ open: false }" @click.away="open = false">
-                        <div class="hamburger-icon" @click="open = !open">
+                    <div class="hamburger-menu" onclick="toggleAgentMenu(event)">
+                        <div class="hamburger-icon">
                             <div class="hamburger-line"></div>
                             <div class="hamburger-line"></div>
                             <div class="hamburger-line"></div>
                         </div>
-                        <div class="dropdown-menu" :class="{ 'open': open }" x-show="open" x-transition>
-                            <div class="dropdown-item" @click="window.startAllAgents(); open = false">Start All Agents</div>
-                            <div class="dropdown-item" @click="window.stopAllAgents(); open = false">Stop All Agents</div>
-                            <div class="dropdown-divider"></div>
-                            <div class="dropdown-item" @click="window.startAllManagers(); open = false">Start All Managers</div>
-                            <div class="dropdown-item" @click="window.stopAllManagers(); open = false">Stop All Managers</div>
+                        <div class="dropdown-menu" id="agent-menu">
+                            <div class="dropdown-item" onclick="console.log('Start All clicked'); startAllAgents()">Start All Agents</div>
+                            <div class="dropdown-item" onclick="stopAllAgents()">Stop All Agents</div>
                         </div>
                     </div>
                 </h3>
@@ -1349,38 +1339,30 @@
         </div>
     </div>
     
-    <!-- Summary Modal for Start/Stop All -->
-    <div id="summary-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 id="summary-title">Operation Summary</h2>
-                <button class="modal-close" onclick="closeSummaryModal()">×</button>
-            </div>
-            <div class="modal-body" id="summary-content">
-                <!-- Summary content will be populated here -->
-            </div>
-            <div class="modal-footer" style="text-align: center; padding: 15px; border-top: 1px solid var(--border-color);">
-                <button class="btn btn-primary" onclick="closeSummaryModal()">OK</button>
-            </div>
-        </div>
-    </div>
-    
     <script>
-        // Single source of truth for version
-        const HUB_VERSION = '2.1.74';
+        console.log('CACHE BUST: Loading v2.1.44 Alpine.js app at', new Date().toISOString());
         
-        // Update page title with version
-        document.title = `Infrastructure AI Hub (v${HUB_VERSION})`;
-        
-        console.log(`CACHE BUST: Loading v${HUB_VERSION} with start/stop all summary dialogs at`, new Date().toISOString());
-        const API_BASE = window.location.origin + '/api';
-        let selectedAgents = [];
-        let activeTabId = 'new';
-        let tabs = new Map(); // tabId -> { title, messages, agentInfo }
-        let activeTabAgents = {}; // tabId -> [agentName] mapping for chat tabs
-        let chatHistory = []; // Persistent storage of all chats
-        let activeChats = {}; // tabId -> chatId mapping for logging
-        const MAX_TABS = 5;
+        // Alpine.js app definition
+        function hubApp() {
+            return {
+                // Data properties
+                API_BASE: window.location.origin + '/api',
+                selectedAgents: [],
+                activeTabId: 'new',
+                tabs: new Map(),
+                activeTabAgents: {},
+                chatHistory: [],
+                activeChats: {},
+                MAX_TABS: 5,
+                agents: [],
+                
+                // Initialize
+                init() {
+                    console.log('Initializing Alpine.js hub app');
+                    this.loadHistory();
+                    this.loadAgents();
+                    setInterval(() => this.loadAgents(), 10000);
+                },
         
         // Helper function for safe JSON parsing with detailed error logging
         async function safeJsonParse(response, context = '') {
@@ -1657,11 +1639,13 @@
                             <button class="error-details-btn" onclick="toggleErrorDetails('${messageId}')" title="Show error details">
                                 <span style="color: #e74c3c;">❓</span>
                             </button>
-                            <div class="error-details" id="error-${messageId}" style="display: none;">
-                                <pre>${errorDetails}</pre>
-                            </div>
                         ` : ''}
                     </div>
+                    ${isError && errorDetails ? `
+                        <div class="error-details" id="error-${messageId}" style="display: none;">
+                            <pre>${escapeHtml(errorDetails)}</pre>
+                        </div>
+                    ` : ''}
                     <div class="message-time">${timestamp}</div>
                     <button class="copy-btn" onclick="copyMessageContent('${messageId}')" title="Copy message">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -2205,6 +2189,82 @@
             }
         }
         
+        // Token calculation
+        function calculateTokens(messages) {
+            let userTokens = 0;
+            let assistantTokens = 0;
+            let totalTokens = 0;
+            
+            messages.forEach(msg => {
+                // Rough estimation: 1 token ≈ 4 characters
+                const tokens = Math.ceil(msg.content.length / 4);
+                totalTokens += tokens;
+                
+                if (msg.role === 'user') {
+                    userTokens += tokens;
+                } else {
+                    assistantTokens += tokens;
+                }
+            });
+            
+            // Calculate approximate costs
+            // Claude 3 pricing: $15/M input tokens, $75/M output tokens
+            const inputCost = (userTokens / 1000000) * 15;
+            const outputCost = (assistantTokens / 1000000) * 75;
+            const totalCost = inputCost + outputCost;
+            
+            return {
+                total: totalTokens,
+                user: userTokens,
+                assistant: assistantTokens,
+                estimatedCost: {
+                    input: inputCost,
+                    output: outputCost,
+                    total: totalCost
+                }
+            };
+        }
+        
+        function displayTokenInfo(tabId, tokenInfo) {
+            const container = document.getElementById(`messages-${tabId}`);
+            if (!container) return;
+            
+            // Add token info at the top
+            const tokenDiv = document.createElement('div');
+            tokenDiv.className = 'token-info';
+            tokenDiv.style.cssText = `
+                background: var(--bg-secondary);
+                border: 1px solid var(--border-color);
+                border-radius: 8px;
+                padding: 12px;
+                margin: 0 0 16px 0;
+                font-size: 14px;
+                color: var(--text-secondary);
+            `;
+            tokenDiv.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <strong>Token Usage Estimate:</strong>
+                        <span style="color: var(--text-primary);">${tokenInfo.total.toLocaleString()} tokens</span>
+                        (User: ${tokenInfo.user.toLocaleString()}, Assistant: ${tokenInfo.assistant.toLocaleString()})
+                    </div>
+                    <div style="text-align: right;">
+                        <strong>Est. Cost to Replay:</strong>
+                        <span style="color: var(--success-color);">$${tokenInfo.estimatedCost.total.toFixed(4)}</span>
+                        <div style="font-size: 12px; margin-top: 2px;">
+                            Input: $${tokenInfo.estimatedCost.input.toFixed(4)} | Output: $${tokenInfo.estimatedCost.output.toFixed(4)}
+                        </div>
+                    </div>
+                </div>
+                <div style="margin-top: 8px; font-size: 12px; font-style: italic;">
+                    Note: If replayed to Claude, all user messages would be sent as input (~${tokenInfo.user.toLocaleString()} tokens)
+                </div>
+            `;
+            
+            // Insert at the beginning of the container
+            container.insertBefore(tokenDiv, container.firstChild);
+        }
+        
         // History modal
         function openHistoryModal() {
             const modal = document.getElementById('history-modal');
@@ -2240,78 +2300,6 @@
             document.getElementById('history-modal').classList.remove('open');
         }
         
-        function showSummaryModal(title, results, totalDuration) {
-            const modal = document.getElementById('summary-modal');
-            document.getElementById('summary-title').textContent = title;
-            
-            // Categorize results
-            const successful = results.filter(r => r.status === 'success');
-            const alreadyInState = results.filter(r => r.status === 'already');
-            const failed = results.filter(r => r.status === 'failed');
-            
-            let html = '';
-            
-            // Show total duration at the top
-            if (totalDuration) {
-                html += '<div style="margin-bottom: 20px; padding: 10px; background-color: rgba(255,255,255,0.05); border-radius: 5px;">';
-                html += '<strong>Total time until dialog shown:</strong> ' + (totalDuration / 1000).toFixed(2) + ' seconds';
-                html += '</div>';
-            
-            // Show successful operations
-            if (successful.length > 0) {
-                html += '<div style="margin-bottom: 20px;">';
-                html += '<h3 style="color: var(--success); margin-bottom: 10px;">✅ Successful (' + successful.length + '):</h3>';
-                successful.forEach(r => {
-                    html += '<div style="padding-left: 20px; margin-bottom: 5px;">• <strong>' + r.agent + '</strong> - ' + r.message;
-                    if (r.callbackDuration) {
-                        html += ' → <span style="color: var(--success);">' + (r.callbackDuration / 1000).toFixed(2) + 's</span>';
-                    } else if (r.duration) {
-                        html += ' (' + r.duration + ')';
-                    }
-                    html += '</div>';
-                });
-                html += '</div>';
-            }
-            
-            // Show already in state
-            if (alreadyInState.length > 0) {
-                html += '<div style="margin-bottom: 20px;">';
-                html += '<h3 style="color: var(--warning); margin-bottom: 10px;">⚠️ Already ' + (title.includes('Start') ? 'Running' : 'Stopped') + ' (' + alreadyInState.length + '):</h3>';
-                alreadyInState.forEach(r => {
-                    html += '<div style="padding-left: 20px; margin-bottom: 5px;">• <strong>' + r.agent + '</strong> - No action needed</div>';
-                });
-                html += '</div>';
-            }
-            
-            // Show failed operations
-            if (failed.length > 0) {
-                html += '<div style="margin-bottom: 20px;">';
-                html += '<h3 style="color: var(--error); margin-bottom: 10px;">❌ Failed - Manager Not Running (' + failed.length + '):</h3>';
-                failed.forEach(r => {
-                    html += '<div style="padding-left: 20px; margin-bottom: 5px;">• <strong>' + r.agent + '</strong> - ' + r.message + '</div>';
-                });
-                html += '</div>';
-            }
-            
-            // Add summary line
-            const totalAgents = results.length;
-            const summaryParts = [];
-            if (successful.length > 0) summaryParts.push(successful.length + ' ' + (title.includes('Start') ? 'started' : 'stopped'));
-            if (alreadyInState.length > 0) summaryParts.push(alreadyInState.length + ' already ' + (title.includes('Start') ? 'running' : 'stopped'));
-            if (failed.length > 0) summaryParts.push(failed.length + ' failed');
-            
-            html += '<div style="border-top: 1px solid var(--border-color); margin-top: 20px; padding-top: 15px;">';
-            html += '<strong>Summary:</strong> ' + summaryParts.join(', ');
-            html += '</div>';
-            
-            document.getElementById('summary-content').innerHTML = html;
-            modal.classList.add('open');
-        }
-        
-        function closeSummaryModal() {
-            document.getElementById('summary-modal').classList.remove('open');
-        }
-        
         function reopenChat(chat) {
             closeHistoryModal();
             
@@ -2326,6 +2314,10 @@
             chat.messages.forEach(msg => {
                 addMessage(tabId, msg.content, msg.role === 'user', msg.agentInfo);
             });
+            
+            // Calculate and display token usage
+            const tokenInfo = calculateTokens(chat.messages);
+            displayTokenInfo(tabId, tokenInfo);
         }
         
         // Agent management
@@ -2538,6 +2530,7 @@
                 
                 // Restore messages
                 const tabData = tabs.get(tabId);
+                const messagesForTokenCalc = [];
                 data.messages.forEach(msg => {
                     const content = msg.content[0].text;
                     const isUser = msg.role === 'human';
@@ -2546,8 +2539,18 @@
                     // Add to UI
                     addMessage(tabId, content, isUser, agentName);
                     
+                    // Store for token calculation
+                    messagesForTokenCalc.push({
+                        content: content,
+                        role: isUser ? 'user' : 'assistant'
+                    });
+                    
                     // Don't log these restored messages
                 });
+                
+                // Calculate and display token usage
+                const tokenInfo = calculateTokens(messagesForTokenCalc);
+                displayTokenInfo(tabId, tokenInfo);
                 
                 // Start logging for new messages in this restored chat
                 startChatLogging(tabId, data.conversation.name, activeTabAgents[tabId]);
@@ -2694,28 +2697,35 @@
             }
         }
         
+        // Global hub version for cache busting
+        let HUB_VERSION = null;
+        
         // Load hub status
         async function loadHubStatus() {
             try {
                 const response = await fetch(`${API_BASE}/status`);
                 const data = await response.json();
+                const hubVersion = data.version || '2.0.9';
                 const managerVersion = data.managerVersion || 'unknown';
                 
-                // Update the status bar with hub version from const
+                // Store hub version globally for cache busting
+                HUB_VERSION = hubVersion;
+                
+                // Update the status bar with hub version only
                 const statusSegment = document.querySelector('.status-segment:has(#hub-version)');
                 if (statusSegment) {
-                    statusSegment.innerHTML = `<span>Hub v${HUB_VERSION}</span>`;
+                    statusSegment.innerHTML = `<span>Hub v${hubVersion}</span>`;
                 }
                 
                 // Handle version-based cache clearing
                 const storedVersion = localStorage.getItem('hubVersion');
-                if (storedVersion && storedVersion !== HUB_VERSION) {
-                    console.log(`Version changed from ${storedVersion} to ${HUB_VERSION}, clearing old localStorage data`);
+                if (storedVersion && storedVersion !== hubVersion) {
+                    console.log(`Version changed from ${storedVersion} to ${hubVersion}, clearing old localStorage data`);
                     // Console commands now in-memory only
                 }
-                localStorage.setItem('hubVersion', HUB_VERSION);
+                localStorage.setItem('hubVersion', hubVersion);
                 
-                console.log(`CACHE BUST: Loading hub v${HUB_VERSION} at`, new Date().toISOString());
+                console.log(`CACHE BUST: Loading hub v${hubVersion} at`, new Date().toISOString());
             } catch (error) {
                 console.error('Failed to load hub status:', error);
             }
@@ -3116,29 +3126,24 @@
             
             // Start listening for execution updates if we have a correlationId
             if (correlationId && !isChild) {
-                // Check if this is a parent command (client-side only)
-                const isParentCommand = command === 'start-all' || command === 'stop-all' || 
-                                      command === 'start-all-managers' || command === 'stop-all-managers';
+                console.log(`[CONSOLE] Starting to listen for updates on ${correlationId}`);
+                listenForExecutionUpdates(correlationId);
                 
-                if (!isParentCommand) {
-                    console.log(`[CONSOLE] Starting to listen for updates on ${correlationId}`);
-                    listenForExecutionUpdates(correlationId);
-                    
-                    // Fetch initial execution data to get proper timing info
-                    setTimeout(async () => {
-                        try {
-                            console.log(`[CONSOLE] Fetching initial data for ${correlationId}`);
-                            const response = await fetch(`/api/executions/${correlationId}`);
-                            if (response.ok) {
-                                const execution = await response.json();
-                                console.log(`[CONSOLE] Got execution data:`, execution);
-                                const commands = getStoredCommands();
-                                const command = commands.find(c => c.correlationId === correlationId);
-                                if (command) {
-                                    command.timingInfo = formatTimingInfo(execution);
-                                    command.status = execution.status || 'pending';
-                                    
-                                    // Update the specific time fields
+                // Fetch initial execution data to get proper timing info
+                setTimeout(async () => {
+                    try {
+                        console.log(`[CONSOLE] Fetching initial data for ${correlationId}`);
+                        const response = await fetch(`/api/executions/${correlationId}`);
+                        if (response.ok) {
+                            const execution = await response.json();
+                            console.log(`[CONSOLE] Got execution data:`, execution);
+                            const commands = getStoredCommands();
+                            const command = commands.find(c => c.correlationId === correlationId);
+                            if (command) {
+                                command.timingInfo = formatTimingInfo(execution);
+                                command.status = execution.status || 'pending';
+                                
+                                // Update the specific time fields
                                 if (execution.callbackTime) {
                                     command.callbackTime = execution.callbackTime;
                                 }
@@ -3163,7 +3168,6 @@
                         console.log('Failed to fetch initial timing info:', error);
                     }
                 }, 500); // Small delay to ensure execution is tracked
-                }
                 
                 // Set client-side timeout (120 seconds for manager operations, 60 for others)
                 const timeoutMs = commandData.command.includes('manager') ? 120000 : 60000;
@@ -3222,48 +3226,11 @@
             return executionHistory;
         }
         
-        function sortCommandsForDisplay(commands) {
-            // Create a map to group commands by parent
-            const commandGroups = new Map();
-            const rootCommands = [];
-            
-            // First pass: organize commands
-            commands.forEach(cmd => {
-                if (cmd.isChild && cmd.parentId) {
-                    if (!commandGroups.has(cmd.parentId)) {
-                        commandGroups.set(cmd.parentId, []);
-                    }
-                    commandGroups.get(cmd.parentId).push(cmd);
-                } else {
-                    rootCommands.push(cmd);
-                }
-            });
-            
-            // Second pass: build sorted array with parents above children
-            const result = [];
-            
-            rootCommands.forEach(rootCmd => {
-                // Add parent command
-                result.push(rootCmd);
-                
-                // Add its children immediately after (in their original order)
-                const children = commandGroups.get(rootCmd.correlationId);
-                if (children) {
-                    result.push(...children);
-                }
-            });
-            
-            return result;
-        }
-        
         function renderConsoleTable() {
             const commands = getStoredCommands();
             const tbody = document.getElementById('console-table-body');
             
-            // Sort commands so parent commands appear above their children
-            const sortedCommands = sortCommandsForDisplay(commands);
-            
-            tbody.innerHTML = sortedCommands.map(cmd => {
+            tbody.innerHTML = commands.map(cmd => {
                 const rowClass = cmd.isChild ? 'console-row-child' : '';
                 const agentCell = cmd.isChild ? `<td class="${rowClass}">${cmd.agent}</td>` : `<td>${cmd.agent}</td>`;
                 
@@ -3483,610 +3450,112 @@
         // Focus initial input
         document.getElementById('task-command').focus();
         
-        // Hamburger menu functions (now handled by Alpine.js)
-        
-        // Make functions globally accessible for Alpine.js
-        window.startAllAgents = startAllAgents;
-        window.stopAllAgents = stopAllAgents;
-        window.startAllManagers = startAllManagers;
-        window.stopAllManagers = stopAllManagers;
+        // Hamburger menu functions
+        function toggleAgentMenu(event) {
+            event.stopPropagation();
+            const menu = document.getElementById('agent-menu');
+            menu.classList.toggle('open');
+            
+            // Close on outside click
+            if (menu.classList.contains('open')) {
+                setTimeout(() => {
+                    document.addEventListener('click', () => {
+                        menu.classList.remove('open');
+                    }, { once: true });
+                }, 0);
+            }
+        }
         
         async function startAllAgents() {
             console.log('Starting all agents...');
+            const startTime = Date.now();
             const agents = await getAgents();
             console.log('Found agents:', agents.agents.map(a => a.name));
+            let started = 0;
+            let failed = 0;
+            const errors = [];
             
-            if (agents.agents.length === 0) {
-                addMessage(activeTabId, 'No agents found to start', false);
-                return;
-            }
+            // Add bulk command to console with correlationId
+            const apiTime = Date.now() - startTime;
+            const bulkCorrelationId = `bulk_start_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            addBulkCommand('start-all', agents.agents, `${apiTime}ms`, bulkCorrelationId);
             
-            // Prepare results for all agents
-            const allResults = [];
-            
-            // Check each agent's status
-            for (const agent of agents.agents) {
-                if (agent.isOnline) {
-                    allResults.push({
-                        agent: agent.name,
-                        status: 'already',
-                        message: 'Already running'
-                    });
-                }
-            }
-            
-            // Filter for agents that are currently offline
-            const offlineAgents = agents.agents.filter(agent => !agent.isOnline);
-            if (offlineAgents.length === 0) {
-                showSummaryModal('Start All Agents - Complete', allResults);
-                return;
-            }
-            
-            const startTime = Date.now();
-            const parentCorrelationId = `start-all_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-            
-            try {
-                // Add parent command to console
-                const commandId = addConsoleCommand('', 'start-all', 'pending', parentCorrelationId, false);
-                
-                // Create child correlation IDs for each agent
-                const childOperations = [];
-                
-                for (const agent of offlineAgents) {
-                    // Check if manager is online
-                    const managerVersion = agent.managerVersion || agent.manager?.version;
-                    const managerOnline = managerVersion && managerVersion !== 'unknown' && managerVersion !== '';
-                    
-                    if (!managerOnline) {
-                        console.log(`Skipping ${agent.name} - manager not online`);
-                        allResults.push({
-                            agent: agent.name,
-                            status: 'failed',
-                            message: 'Manager must be running to control agent'
-                        });
-                        continue;
-                    }
-                    
-                    const childCorrelationId = `start_${agent.name}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-                    childOperations.push({
-                        agent: agent.name,
-                        correlationId: childCorrelationId
-                    });
-                    
-                    // Add child command to console
-                    addConsoleCommand(agent.name, 'start', 'pending', childCorrelationId, true, parentCorrelationId);
-                    
-                    // Listen for execution updates for this child
-                    listenForExecutionUpdates(childCorrelationId);
-                }
-                
-                if (childOperations.length === 0) {
-                    updateCommandStatus(parentCorrelationId, { status: 'failed', error: 'No agents available to start (managers not running)' });
-                    showSummaryModal('Start All Agents - Complete', allResults);
-                    return;
-                }
-                
-                // Start all operations in parallel
-                const startPromises = childOperations.map(async (op) => {
-                    const opStartTime = Date.now();
-                    try {
-                        const response = await fetch(`${API_BASE}/agents/${op.agent}/start`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ correlationId: op.correlationId })
-                        });
-                        
-                        if (!response.ok) {
-                            const error = await response.text();
-                            updateCommandStatus(op.correlationId, { status: 'failed', error });
-                            return { agent: op.agent, success: false, error };
-                        }
-                        
-                        const result = await response.json();
-                        const duration = ((Date.now() - opStartTime) / 1000).toFixed(1) + 's';
-                        return { agent: op.agent, success: true, result, duration };
-                    } catch (error) {
-                        updateCommandStatus(op.correlationId, { status: 'failed', error: error.message });
-                        return { agent: op.agent, success: false, error: error.message };
-                    }
-                });
-                
-                // Wait for all operations to complete
-                const results = await Promise.all(startPromises);
-                const apiTime = Date.now() - startTime;
-                
-                // Update parent command with results
-                const commands = getStoredCommands();
-                const command = commands.find(c => c.id === commandId);
-                if (command) {
-                    command.apiTime = `${apiTime}ms`;
-                    renderConsoleTable();
-                }
-                
-                // Process results and add to allResults
-                results.forEach(r => {
-                    if (r.success) {
-                        allResults.push({
-                            agent: r.agent,
-                            status: 'success',
-                            message: 'Agent started',
-                            duration: r.duration
-                        });
+            // Start all agents in parallel
+            const startPromises = agents.agents.map(agent => {
+                console.log(`Starting agent: ${agent.name}`);
+                return fetch(`${API_BASE}/agents/${agent.name}/start`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                })
+                .then(response => {
+                    if (response.ok) {
+                        console.log(`Successfully started: ${agent.name}`);
+                        return { agent: agent.name, success: true };
                     } else {
-                        allResults.push({
-                            agent: r.agent,
-                            status: 'failed',
-                            message: r.error || 'Failed to start agent'
+                        return response.text().then(error => {
+                            console.error(`Failed to start ${agent.name}:`, error);
+                            return { agent: agent.name, success: false, error };
                         });
                     }
+                })
+                .catch(error => {
+                    console.error(`Error starting ${agent.name}:`, error);
+                    return { agent: agent.name, success: false, error: error.message };
                 });
-                
-                const successful = results.filter(r => r.success).length;
-                const failed = results.filter(r => !r.success).length;
-                
-                // Update parent status
-                if (failed === 0) {
-                    updateCommandStatus(parentCorrelationId, { status: 'completed', result: `${successful} agents started` });
-                } else {
-                    updateCommandStatus(parentCorrelationId, { status: 'failed', error: `${failed} operations failed` });
-                }
-                
-                // Show summary dialog
-                showSummaryModal('Start All Agents - Complete', allResults);
-                
-            } catch (error) {
-                updateCommandStatus(parentCorrelationId, { status: 'failed', error: error.message });
-                addMessage(activeTabId, `Error starting agents: ${error.message}`, false);
-            }
+            });
             
-            setTimeout(loadAgents, 3000);
+            // Wait for all to complete
+            const results = await Promise.all(startPromises);
+            
+            // Count successes and failures
+            results.forEach(result => {
+                if (result.success) {
+                    started++;
+                } else {
+                    failed++;
+                    errors.push(`${result.agent}: ${result.error}`);
+                }
+            });
+            
+            const message = `Started ${started} agents, ${failed} failed`;
+            if (errors.length > 0) {
+                console.error('Start errors:', errors);
+            }
+            addMessage(activeTabId, message, false);
+            setTimeout(loadAgents, 2000);
         }
         
         async function stopAllAgents() {
-            console.log('Stopping all agents...');
-            const agents = await getAgents();
-            
-            if (agents.agents.length === 0) {
-                addMessage(activeTabId, 'No agents found to stop', false);
-                return;
-            }
-            
-            // Prepare results for all agents
-            const allResults = [];
-            
-            // Check each agent's status
-            for (const agent of agents.agents) {
-                if (!agent.isOnline) {
-                    allResults.push({
-                        agent: agent.name,
-                        status: 'already',
-                        message: 'Already stopped'
-                    });
-                }
-            }
-            
-            // Filter for agents that are currently online
-            const onlineAgents = agents.agents.filter(agent => agent.isOnline);
-            if (onlineAgents.length === 0) {
-                showSummaryModal('Stop All Agents - Complete', allResults);
-                return;
-            }
-            
             const startTime = Date.now();
-            const parentCorrelationId = `stop-all_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            const agents = await getAgents();
+            let stopped = 0;
+            let failed = 0;
             
-            try {
-                // Add parent command to console
-                const commandId = addConsoleCommand('', 'stop-all', 'pending', parentCorrelationId, false);
-                
-                // Create child correlation IDs for each agent
-                const childOperations = [];
-                
-                for (const agent of onlineAgents) {
-                    // Check if manager is online
-                    const managerVersion = agent.managerVersion || agent.manager?.version;
-                    const managerOnline = managerVersion && managerVersion !== 'unknown' && managerVersion !== '';
-                    
-                    if (!managerOnline) {
-                        console.log(`Skipping ${agent.name} - manager not online`);
-                        allResults.push({
-                            agent: agent.name,
-                            status: 'failed',
-                            message: 'Manager must be running to control agent'
-                        });
-                        continue;
-                    }
-                    
-                    const childCorrelationId = `stop_${agent.name}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-                    childOperations.push({
-                        agent: agent.name,
-                        correlationId: childCorrelationId
+            // Add bulk command to console with correlationId
+            const apiTime = Date.now() - startTime;
+            const bulkCorrelationId = `bulk_stop_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            addBulkCommand('stop-all', agents.agents, `${apiTime}ms`, bulkCorrelationId);
+            
+            for (const agent of agents.agents) {
+                try {
+                    // Call through hub API
+                    const response = await fetch(`${API_BASE}/agents/${agent.name}/stop`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' }
                     });
                     
-                    // Add child command to console
-                    addConsoleCommand(agent.name, 'stop', 'pending', childCorrelationId, true, parentCorrelationId);
-                    
-                    // Listen for execution updates for this child
-                    listenForExecutionUpdates(childCorrelationId);
-                }
-                
-                if (childOperations.length === 0) {
-                    updateCommandStatus(parentCorrelationId, { status: 'failed', error: 'No agents available to stop (managers not running)' });
-                    showSummaryModal('Stop All Agents - Complete', allResults);
-                    return;
-                }
-                
-                // Stop all operations in parallel
-                const stopPromises = childOperations.map(async (op) => {
-                    const opStartTime = Date.now();
-                    try {
-                        const response = await fetch(`${API_BASE}/agents/${op.agent}/stop`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ correlationId: op.correlationId })
-                        });
-                        
-                        if (!response.ok) {
-                            const error = await response.text();
-                            updateCommandStatus(op.correlationId, { status: 'failed', error });
-                            return { agent: op.agent, success: false, error };
-                        }
-                        
-                        const result = await response.json();
-                        const duration = ((Date.now() - opStartTime) / 1000).toFixed(1) + 's';
-                        return { agent: op.agent, success: true, result, duration };
-                    } catch (error) {
-                        updateCommandStatus(op.correlationId, { status: 'failed', error: error.message });
-                        return { agent: op.agent, success: false, error: error.message };
-                    }
-                });
-                
-                // Wait for all operations to complete
-                const results = await Promise.all(stopPromises);
-                const apiTime = Date.now() - startTime;
-                
-                // Update parent command with results
-                const commands = getStoredCommands();
-                const command = commands.find(c => c.id === commandId);
-                if (command) {
-                    command.apiTime = `${apiTime}ms`;
-                    renderConsoleTable();
-                }
-                
-                // Process results and add to allResults
-                results.forEach(r => {
-                    if (r.success) {
-                        allResults.push({
-                            agent: r.agent,
-                            status: 'success',
-                            message: 'Agent stopped',
-                            duration: r.duration
-                        });
+                    if (response.ok) {
+                        stopped++;
                     } else {
-                        allResults.push({
-                            agent: r.agent,
-                            status: 'failed',
-                            message: r.error || 'Failed to stop agent'
-                        });
+                        failed++;
                     }
-                });
-                
-                const successful = results.filter(r => r.success).length;
-                const failed = results.filter(r => !r.success).length;
-                
-                // Update parent status
-                if (failed === 0) {
-                    updateCommandStatus(parentCorrelationId, { status: 'completed', result: `${successful} agents stopped` });
-                } else {
-                    updateCommandStatus(parentCorrelationId, { status: 'failed', error: `${failed} operations failed` });
-                }
-                
-                // Show summary dialog
-                showSummaryModal('Stop All Agents - Complete', allResults);
-                
-            } catch (error) {
-                updateCommandStatus(parentCorrelationId, { status: 'failed', error: error.message });
-                addMessage(activeTabId, `Error stopping agents: ${error.message}`, false);
-            }
-            
-            setTimeout(loadAgents, 3000);
-        }
-        
-        async function startAllManagers() {
-            console.log('Starting all managers...');
-            const agents = await getAgents();
-            
-            if (agents.agents.length === 0) {
-                addMessage(activeTabId, 'No agents found to start managers for', false);
-                return;
-            }
-            
-            // Prepare results for all managers
-            const allResults = [];
-            
-            // Check each agent's manager status
-            for (const agent of agents.agents) {
-                const managerVersion = agent.managerVersion || agent.manager?.version;
-                const managerOnline = managerVersion && managerVersion !== 'unknown' && managerVersion !== '';
-                
-                if (managerOnline) {
-                    allResults.push({
-                        agent: agent.name,
-                        status: 'already',
-                        message: 'Manager already running'
-                    });
+                } catch (error) {
+                    failed++;
                 }
             }
             
-            // Filter out agents that already have managers running
-            const agentsNeedingManagerStart = agents.agents.filter(agent => {
-                const managerVersion = agent.managerVersion || agent.manager?.version;
-                const managerOnline = managerVersion && managerVersion !== 'unknown' && managerVersion !== '';
-                return !managerOnline;
-            });
-            
-            // Create parent command for tracking
-            const parentCorrelationId = 'parent_' + Date.now();
-            // Add parent command to console
-            addConsoleCommand('all', 'start-all-managers', 'pending', parentCorrelationId, false);
-            
-            if (agentsNeedingManagerStart.length === 0) {
-                // Mark parent as completed immediately
-                updateCommandStatus(parentCorrelationId, { 
-                    status: 'completed', 
-                    result: 'All managers already running' 
-                });
-                showSummaryModal('Start All Managers - Complete', allResults);
-                return;
-            }
-            
-            try {
-                // Start managers on all agents that need it
-                const startPromises = agentsNeedingManagerStart.map(async (agent) => {
-                    const startTime = Date.now();
-                    const correlationId = 'cmd_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-                    try {
-                        console.log(`Starting manager on ${agent.name}...`);
-                        
-                        // Add child command to console
-                        addConsoleCommand(agent.name, 'start-manager', 'pending', correlationId, true, parentCorrelationId);
-                        listenForExecutionUpdates(correlationId);
-                        
-                        const response = await fetch(`${API_BASE}/managers/${agent.name}/start`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({
-                                correlationId: correlationId
-                            })
-                        });
-                        
-                        if (!response.ok) {
-                            const errorText = await response.text();
-                            throw new Error(`HTTP ${response.status}: ${errorText}`);
-                        }
-                        
-                        const result = await response.json();
-                        const endTime = Date.now();
-                        const duration = endTime - startTime;
-                        
-                        if (result.success) {
-                            allResults.push({
-                                agent: agent.name,
-                                status: 'success',
-                                message: 'Manager started successfully',
-                                time: duration
-                            });
-                            return { agent: agent.name, success: true, duration, correlationId };
-                        } else {
-                            allResults.push({
-                                agent: agent.name,
-                                status: 'failed',
-                                error: result.error || 'Unknown error',
-                                time: duration
-                            });
-                            return { agent: agent.name, success: false, error: result.error, correlationId };
-                        }
-                    } catch (error) {
-                        const endTime = Date.now();
-                        const duration = endTime - startTime;
-                        allResults.push({
-                            agent: agent.name,
-                            status: 'failed',
-                            error: error.message,
-                            time: duration
-                        });
-                        return { agent: agent.name, success: false, error: error.message, correlationId };
-                    }
-                });
-                
-                const results = await Promise.all(startPromises);
-                console.log('Manager start results:', results);
-                
-                // Wait for all manager operations to complete via correlation tracking
-                const childCorrelationIds = agentsNeedingManagerStart.map(agent => {
-                    return results.find(r => r.agent === agent.name)?.correlationId;
-                }).filter(id => id);
-                
-                console.log('Child correlation IDs to wait for:', childCorrelationIds);
-                
-                if (childCorrelationIds.length > 0) {
-                    await waitForOperationsToComplete(childCorrelationIds);
-                }
-                
-                // Update parent command status AFTER children complete
-                const successful = results.filter(r => r.success).length;
-                const failed = results.filter(r => !r.success).length;
-                
-                // Update parent status
-                if (failed === 0) {
-                    updateCommandStatus(parentCorrelationId, { status: 'completed', result: `${successful} managers started` });
-                } else {
-                    updateCommandStatus(parentCorrelationId, { status: 'failed', error: `${failed} operations failed` });
-                }
-                
-                // Refresh agent status to get updated manager versions
-                await loadAgents();
-                
-                // Show summary dialog
-                showSummaryModal('Start All Managers - Complete', allResults);
-                
-            } catch (error) {
-                updateCommandStatus(parentCorrelationId, { status: 'failed', error: error.message });
-                addMessage(activeTabId, `Error starting managers: ${error.message}`, false);
-                // Show error dialog immediately on failure
-                showSummaryModal('Start All Managers - Failed', allResults);
-            }
-        }
-        
-        async function stopAllManagers() {
-            const operationStartTime = Date.now();
-            console.log(`[${new Date().toISOString()}] Starting stopAllManagers operation`);
-            const agents = await getAgents();
-            
-            if (agents.agents.length === 0) {
-                addMessage(activeTabId, 'No agents found to stop managers for', false);
-                return;
-            }
-            
-            // Prepare results for all managers
-            const allResults = [];
-            
-            // Check each agent's manager status
-            for (const agent of agents.agents) {
-                const managerVersion = agent.managerVersion || agent.manager?.version;
-                const managerOnline = managerVersion && managerVersion !== 'unknown' && managerVersion !== '';
-                
-                if (!managerOnline) {
-                    allResults.push({
-                        agent: agent.name,
-                        status: 'already',
-                        message: 'Manager already stopped'
-                    });
-                }
-            }
-            
-            // Filter out agents that already have managers stopped
-            const agentsNeedingManagerStop = agents.agents.filter(agent => {
-                const managerVersion = agent.managerVersion || agent.manager?.version;
-                const managerOnline = managerVersion && managerVersion !== 'unknown' && managerVersion !== '';
-                return managerOnline;
-            });
-            
-            // Create parent command for tracking
-            const parentCorrelationId = 'parent_' + Date.now();
-            // Add parent command to console
-            addConsoleCommand('all', 'stop-all-managers', 'pending', parentCorrelationId, false);
-            
-            if (agentsNeedingManagerStop.length === 0) {
-                // Mark parent as completed immediately
-                updateCommandStatus(parentCorrelationId, { 
-                    status: 'completed', 
-                    result: 'All managers already stopped' 
-                });
-                showSummaryModal('Stop All Managers - Complete', allResults);
-                return;
-            }
-            
-            try {
-                // Stop managers on all agents that need it
-                const stopPromises = agentsNeedingManagerStop.map(async (agent) => {
-                    const startTime = Date.now();
-                    const correlationId = 'cmd_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-                    try {
-                        console.log(`Stopping manager on ${agent.name}...`);
-                        
-                        // Add child command to console
-                        addConsoleCommand(agent.name, 'stop-manager', 'pending', correlationId, true, parentCorrelationId);
-                        listenForExecutionUpdates(correlationId);
-                        
-                        const response = await fetch(`${API_BASE}/managers/${agent.name}/stop`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({
-                                correlationId: correlationId
-                            })
-                        });
-                        
-                        if (!response.ok) {
-                            const errorText = await response.text();
-                            throw new Error(`HTTP ${response.status}: ${errorText}`);
-                        }
-                        
-                        const result = await response.json();
-                        const endTime = Date.now();
-                        const duration = endTime - startTime;
-                        
-                        if (result.success) {
-                            allResults.push({
-                                agent: agent.name,
-                                status: 'success',
-                                message: 'Manager stopped successfully',
-                                time: duration
-                            });
-                            return { agent: agent.name, success: true, duration, correlationId };
-                        } else {
-                            allResults.push({
-                                agent: agent.name,
-                                status: 'failed',
-                                error: result.error || 'Unknown error',
-                                time: duration
-                            });
-                            return { agent: agent.name, success: false, error: result.error, correlationId };
-                        }
-                    } catch (error) {
-                        const endTime = Date.now();
-                        const duration = endTime - startTime;
-                        allResults.push({
-                            agent: agent.name,
-                            status: 'failed',
-                            error: error.message,
-                            time: duration
-                        });
-                        return { agent: agent.name, success: false, error: error.message, correlationId };
-                    }
-                });
-                
-                const results = await Promise.all(stopPromises);
-                console.log('Manager stop results:', results);
-                
-                // Wait for all manager operations to complete via correlation tracking
-                const childCorrelationIds = agentsNeedingManagerStop.map(agent => {
-                    return results.find(r => r.agent === agent.name)?.correlationId;
-                }).filter(id => id);
-                
-                console.log('Child correlation IDs to wait for:', childCorrelationIds);
-                
-                if (childCorrelationIds.length > 0) {
-                    await waitForOperationsToComplete(childCorrelationIds);
-                }
-                
-                // Update parent command status AFTER children complete
-                const successful = results.filter(r => r.success).length;
-                const failed = results.filter(r => !r.success).length;
-                
-                // Update parent status
-                if (failed === 0) {
-                    updateCommandStatus(parentCorrelationId, { status: 'completed', result: `${successful} managers stopped` });
-                } else {
-                    updateCommandStatus(parentCorrelationId, { status: 'failed', error: `${failed} operations failed` });
-                }
-                
-                // Refresh agent status to get updated manager versions
-                await loadAgents();
-                
-                // Show summary dialog
-                showSummaryModal('Stop All Managers - Complete', allResults);
-                
-            } catch (error) {
-                updateCommandStatus(parentCorrelationId, { status: 'failed', error: error.message });
-                addMessage(activeTabId, `Error stopping managers: ${error.message}`, false);
-                // Show error dialog immediately on failure
-                showSummaryModal('Stop All Managers - Failed', allResults);
-            }
+            addMessage(activeTabId, `Stopped ${stopped} agents, ${failed} failed`, false);
+            setTimeout(loadAgents, 2000);
         }
         
         async function getAgents() {
@@ -4444,45 +3913,6 @@
         let reconnectAttempts = 0;
         let reconnectTimeout = null;
         
-        // Wait for multiple operations to complete via correlation tracking
-        async function waitForOperationsToComplete(correlationIds, timeout = 60000) {
-            console.log(`Waiting for ${correlationIds.length} operations to complete:`, correlationIds);
-            
-            return new Promise((resolve) => {
-                const startTime = Date.now();
-                const checkInterval = 500; // Check every 500ms
-                
-                const checkCompletion = () => {
-                    const commands = getStoredCommands();
-                    const statuses = correlationIds.map(id => {
-                        const cmd = commands.find(c => c.correlationId === id);
-                        return { id, status: cmd?.status || 'not found' };
-                    });
-                    
-                    const allCompleted = statuses.every(s => 
-                        s.status === 'completed' || s.status === 'failed'
-                    );
-                    
-                    if (allCompleted) {
-                        console.log('All operations completed:', statuses);
-                        resolve(true);
-                    } else if (Date.now() - startTime > timeout) {
-                        console.log('Timeout waiting for operations to complete. Current statuses:', statuses);
-                        resolve(false);
-                    } else {
-                        // Log pending operations periodically
-                        const pending = statuses.filter(s => s.status === 'pending');
-                        if (pending.length > 0 && (Date.now() - startTime) % 2000 < checkInterval) {
-                            console.log(`Still waiting for ${pending.length} operations:`, pending);
-                        }
-                        setTimeout(checkCompletion, checkInterval);
-                    }
-                };
-                
-                checkCompletion();
-            });
-        }
-        
         function listenForExecutionUpdates(correlationId) {
             // Add to listeners first
             executionListeners.set(correlationId, true);
@@ -4608,15 +4038,7 @@
         }
         
         function updateCommandStatus(correlationId, execution) {
-            // Check if this is a parent command (client-side only)
-            const isParentCommand = correlationId && (
-                correlationId.startsWith('start-all_') || 
-                correlationId.startsWith('stop-all_') ||
-                correlationId.startsWith('parent_')
-            );
-            
-            // For parent commands, we don't need the listener check
-            if (!isParentCommand && !executionListeners.has(correlationId)) return;
+            if (!executionListeners.has(correlationId)) return;
             
             const commands = getStoredCommands();
             const command = commands.find(c => c.correlationId === correlationId);
@@ -4632,8 +4054,8 @@
                     command.pollingDetectedTime = execution.pollingDetectedTime;
                 }
                 
-                if (execution.endTime || execution.status === 'completed' || execution.status === 'failed') {
-                    command.duration = (execution.endTime || Date.now()) - command.startTime;
+                if (execution.endTime) {
+                    command.duration = execution.endTime - execution.startTime;
                 }
                 if (execution.error) {
                     command.error = execution.error;

@@ -11,6 +11,7 @@ const execAsync = (0, util_1.promisify)(child_process_1.exec);
 class AgentAICommandProcessor {
     constructor(apiKey, capabilitiesManager) {
         this.agentCapabilities = '';
+        console.log(`Initializing Anthropic with API key length: ${apiKey.length}, last 4 chars: ...${apiKey.slice(-4)}`);
         this.anthropic = new sdk_1.default({ apiKey });
         this.capabilitiesManager = capabilitiesManager;
         this.agentName = process.env.AGENT_NAME || 'unknown';

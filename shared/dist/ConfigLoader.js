@@ -35,6 +35,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ConfigLoader = void 0;
 const fs = __importStar(require("fs"));
+const child_process_1 = require("child_process");
 class ConfigLoader {
     constructor() {
         this.config = null;
@@ -56,6 +57,8 @@ class ConfigLoader {
         try {
             const configData = fs.readFileSync(this.configPath, 'utf-8');
             this.config = JSON.parse(configData);
+            // Decrypt any encrypted values
+            this.config = this.decryptConfig(this.config);
             return this.config;
         }
         catch (error) {
@@ -115,6 +118,42 @@ class ConfigLoader {
     // For hub - get agent by name
     getAgent(name) {
         return this.getConfig().agents.find(a => a.name === name);
+    }
+    decryptConfig(config) {
+        if (typeof config === 'string' && config.startsWith('EV:')) {
+            return this.decryptValue(config);
+        }
+        else if (Array.isArray(config)) {
+            return config.map(item => this.decryptConfig(item));
+        }
+        else if (config !== null && typeof config === 'object') {
+            const decrypted = {};
+            for (const key in config) {
+                decrypted[key] = this.decryptConfig(config[key]);
+            }
+            return decrypted;
+        }
+        return config;
+    }
+    decryptValue(value) {
+        if (!value.startsWith('EV:')) {
+            return value;
+        }
+        try {
+            const encrypted = value.substring(3);
+            const command = `echo "${encrypted}" | openssl enc -d -aes-256-cbc -a -salt -pass pass:backend-ai-2024`;
+            const decrypted = (0, child_process_1.execSync)(command, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
+            // Debug logging for API key decryption
+            if (decrypted) {
+                console.log(`Successfully decrypted value starting with ${value.substring(0, 10)}...`);
+                console.log(`Decrypted length: ${decrypted.length}, starts with: ${decrypted.substring(0, 20)}...`);
+            }
+            return decrypted;
+        }
+        catch (error) {
+            console.error('Failed to decrypt value:', error);
+            return value;
+        }
     }
 }
 exports.ConfigLoader = ConfigLoader;

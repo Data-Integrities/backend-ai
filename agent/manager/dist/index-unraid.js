@@ -40,23 +40,22 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const child_process_1 = require("child_process");
 const util_1 = require("util");
+const axios_1 = __importDefault(require("axios"));
+const fs = __importStar(require("fs/promises"));
 const path = __importStar(require("path"));
+const shared_1 = require("@proxmox-ai-control/shared");
 const execAsync = (0, util_1.promisify)(child_process_1.exec);
 const app = (0, express_1.default)();
 const PORT = 3081;
-// Get version from package.json
-let MANAGER_VERSION = 'unknown';
-try {
-    const packageJson = require('../../package.json');
-    MANAGER_VERSION = packageJson.version || 'unknown';
-}
-catch {
-    // Version will remain 'unknown'
-}
+// Get version from configuration
+const configLoader = shared_1.ConfigLoader.getInstance();
+const config = configLoader.getConfig();
+const MANAGER_VERSION = config.system.version || 'unknown';
+const myAgent = configLoader.getMyAgent();
+const HUB_URL = configLoader.getHubUrl();
 app.use(express_1.default.json());
 // Agent directory
 const AGENT_DIR = '/opt/ai-agent/agent';
-const HUB_URL = 'http://192.168.1.30';
 // Status endpoint for Unraid
 app.get('/status', async (req, res) => {
     let isRunning = false;
@@ -77,12 +76,25 @@ app.get('/status', async (req, res) => {
 });
 // Start agent for Unraid
 app.post('/start', async (req, res) => {
+    const correlationId = req.body?.correlationId;
+    console.log(`[MANAGER] Starting agent${correlationId ? ` [${correlationId}]` : ''}`);
     try {
-        // Use the Unraid start script
-        await execAsync(`/opt/ai-agent/agent/start-unraid.sh`);
-        res.json({ success: true });
+        // Use the rc.d script to start the agent with correlationId as parameter
+        const command = correlationId
+            ? `/etc/rc.d/rc.ai-agent start ${correlationId}`
+            : '/etc/rc.d/rc.ai-agent start';
+        const { stdout, stderr } = await execAsync(command);
+        console.log(`[MANAGER] Start command output: ${stdout}`);
+        if (stderr) {
+            console.error(`[MANAGER] Start command stderr: ${stderr}`);
+        }
+        res.json({
+            success: true,
+            output: stdout.trim()
+        });
     }
     catch (error) {
+        console.error(`[MANAGER] Error starting agent: ${error.message}`);
         res.status(500).json({
             success: false,
             error: error.message
@@ -91,12 +103,56 @@ app.post('/start', async (req, res) => {
 });
 // Stop agent for Unraid
 app.post('/stop', async (req, res) => {
+    const correlationId = req.body?.correlationId;
+    console.log(`[MANAGER] Stopping agent${correlationId ? ` [${correlationId}]` : ''}`);
     try {
-        // Kill the agent process
-        await execAsync(`pkill -f "node.*ai-agent/agent/dist/api/index.js" || true`);
-        res.json({ success: true });
+        // Use the rc.d script to stop the agent properly
+        const { stdout, stderr } = await execAsync('/etc/rc.d/rc.ai-agent stop');
+        console.log(`[MANAGER] Stop command output: ${stdout}`);
+        if (stderr) {
+            console.error(`[MANAGER] Stop command stderr: ${stderr}`);
+        }
+        // Wait for agent to actually stop by polling its status endpoint
+        if (correlationId) {
+            console.log(`[MANAGER] Waiting for agent to stop responding [${correlationId}]`);
+            let attempts = 0;
+            const maxAttempts = 10;
+            while (attempts < maxAttempts) {
+                try {
+                    await axios_1.default.get('http://localhost:3080/api/status', { timeout: 1000 });
+                    console.log(`[MANAGER] Agent still responding, waiting... (attempt ${attempts + 1})`);
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    attempts++;
+                }
+                catch (error) {
+                    // Agent stopped responding - send notification to hub
+                    console.log(`[MANAGER] Agent stopped responding, sending notification [${correlationId}]`);
+                    try {
+                        await axios_1.default.post(`${HUB_URL}/api/notifications`, {
+                            type: 'agent-offline',
+                            agentId: process.env.AGENT_NAME || 'unraid',
+                            correlationId: correlationId,
+                            timestamp: new Date().toISOString()
+                        }, { timeout: 2000 });
+                        console.log(`[MANAGER] Sent offline notification to hub [${correlationId}]`);
+                    }
+                    catch (hubError) {
+                        console.error(`[MANAGER] Failed to notify hub: ${hubError.message}`);
+                    }
+                    break;
+                }
+            }
+            if (attempts >= maxAttempts) {
+                console.warn(`[MANAGER] Agent still responding after ${maxAttempts} attempts`);
+            }
+        }
+        res.json({
+            success: true,
+            output: stdout.trim()
+        });
     }
     catch (error) {
+        console.error(`[MANAGER] Error stopping agent: ${error.message}`);
         res.status(500).json({
             success: false,
             error: error.message
@@ -105,14 +161,26 @@ app.post('/stop', async (req, res) => {
 });
 // Restart agent for Unraid
 app.post('/restart', async (req, res) => {
+    const correlationId = req.body?.correlationId;
+    console.log(`[MANAGER] Restarting agent${correlationId ? ` [${correlationId}]` : ''}`);
     try {
-        // Kill and restart using the script
-        await execAsync(`pkill -f "node.*ai-agent/agent/dist/api/index.js" || true`);
-        await execAsync(`sleep 1`);
-        await execAsync(`/opt/ai-agent/agent/start-unraid.sh`);
-        res.json({ success: true });
+        // Use the rc.d script to restart the agent properly
+        const { stdout, stderr } = await execAsync('/etc/rc.d/rc.ai-agent restart');
+        console.log(`[MANAGER] Restart command output: ${stdout}`);
+        if (stderr) {
+            console.error(`[MANAGER] Restart command stderr: ${stderr}`);
+        }
+        // Write correlationId to file if provided
+        if (correlationId) {
+            await fs.writeFile(path.join(AGENT_DIR, '.correlationId'), correlationId, 'utf-8');
+        }
+        res.json({
+            success: true,
+            output: stdout.trim()
+        });
     }
     catch (error) {
+        console.error(`[MANAGER] Error restarting agent: ${error.message}`);
         res.status(500).json({
             success: false,
             error: error.message
@@ -150,7 +218,7 @@ app.get('/version', async (req, res) => {
         });
     }
 });
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, '0.0.0.0', async () => {
     console.log(`Agent manager (Unraid) listening on port ${PORT}`);
     console.log('Available endpoints:');
     console.log('  GET  /status  - Check agent status');
@@ -159,4 +227,21 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log('  POST /restart - Restart agent');
     console.log('  GET  /version - Get agent version');
     console.log('  GET  /logs    - Get agent logs');
+    // Check if we were started with a correlationId
+    const correlationId = process.env.CORRELATION_ID;
+    if (correlationId) {
+        console.log(`Manager started with correlationId: ${correlationId}`);
+        // Send callback to hub that manager has started successfully
+        try {
+            await axios_1.default.post(`${HUB_URL}/api/executions/${correlationId}/complete`, {
+                result: `Manager started successfully on ${myAgent.name}`,
+                agentId: myAgent.name,
+                detectedBy: 'manager-startup'
+            }, { timeout: 5000 });
+            console.log(`Notified hub of manager startup completion`);
+        }
+        catch (error) {
+            console.error(`Failed to notify hub of manager startup:`, error);
+        }
+    }
 });

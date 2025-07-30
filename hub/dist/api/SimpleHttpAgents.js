@@ -109,6 +109,21 @@ class SimpleHttpAgents {
                         const { correlationTracker } = require('./correlation-tracker');
                         correlationTracker.addLog(response.data.correlationId, `[POLLING] Detected ${agent.name} is online via polling`);
                         correlationTracker.recordPollingDetection(response.data.correlationId);
+                        // Complete the execution
+                        correlationTracker.completeExecution(response.data.correlationId, {
+                            result: 'Agent started successfully (detected by polling)',
+                            agentId: agent.name,
+                            detectedBy: 'polling'
+                        });
+                        // Acknowledge to agent that we received the correlationId
+                        try {
+                            await axios_1.default.post(`http://${agent.ip}:${agent.port}/api/correlation/acknowledge`, {
+                                correlationId: response.data.correlationId
+                            });
+                        }
+                        catch (error) {
+                            console.log(`Failed to acknowledge correlation to agent: ${error}`);
+                        }
                         // Call any registered callbacks
                         const callback = this.correlationCallbacks.get(response.data.correlationId);
                         if (callback) {
@@ -140,15 +155,9 @@ class SimpleHttpAgents {
                 }
             }
             catch {
-                // Check if agent is going offline with a pending correlationId (stop operation)
-                if (agent.isOnline && agent.pendingCorrelationId) {
-                    console.log(`[CORRELATION] Agent ${agent.name} went offline with correlationId: ${agent.pendingCorrelationId}`);
-                    // Notify correlation tracker that polling detected the agent offline
-                    const { correlationTracker } = require('./correlation-tracker');
-                    correlationTracker.addLog(agent.pendingCorrelationId, `[POLLING] Detected ${agent.name} is offline via polling`);
-                    correlationTracker.recordPollingDetection(agent.pendingCorrelationId);
-                    // Clear the pending correlationId
-                    agent.pendingCorrelationId = undefined;
+                // Agent went offline - just log it, don't try to complete correlations via polling
+                if (agent.isOnline) {
+                    console.log(`[POLLING] Agent ${agent.name} went offline`);
                 }
                 agent.isOnline = false;
             }
@@ -198,8 +207,8 @@ class SimpleHttpAgents {
                     correlationTracker.completeExecution(agent.pendingCorrelationId, {
                         result: 'Manager stopped successfully (detected by polling)'
                     });
-                    // Clear the pending correlationId
-                    agent.pendingCorrelationId = undefined;
+                    // Clear the pending correlationId using proper method
+                    this.clearPendingCorrelationId(agent.name);
                 }
             }
         }

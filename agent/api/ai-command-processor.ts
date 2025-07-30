@@ -14,6 +14,7 @@ export class AgentAICommandProcessor {
     private agentCapabilities: string = '';
 
     constructor(apiKey: string, capabilitiesManager: CapabilitiesManager) {
+        console.log(`Initializing Anthropic with API key length: ${apiKey.length}, last 4 chars: ...${apiKey.slice(-4)}`);
         this.anthropic = new Anthropic({ apiKey });
         this.capabilitiesManager = capabilitiesManager;
         this.agentName = process.env.AGENT_NAME || 'unknown';

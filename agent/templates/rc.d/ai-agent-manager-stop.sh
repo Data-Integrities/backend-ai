@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Backend AI Manager Stop Script with Callback
+# Backend AI Manager Stop Script with Callback (Unraid)
 # This script stops the manager and sends a callback when complete
 
 CORRELATION_ID="$1"
@@ -17,7 +17,7 @@ log "Starting manager stop process with correlationId: $CORRELATION_ID"
 
 # Stop the manager service
 log "Stopping ai-agent-manager service..."
-systemctl stop ai-agent-manager
+/etc/rc.d/rc.ai-agent-manager stop
 
 # Launch background monitor to detect when manager is actually stopped
 (

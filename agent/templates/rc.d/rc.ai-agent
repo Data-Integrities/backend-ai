@@ -8,28 +8,28 @@
 
 AGENT_DIR="/opt/ai-agent/agent"
 NODE_BIN="/usr/local/bin/node"
-PIDFILE="/var/run/ai-agent.pid"
-LOGFILE="/var/log/backend-ai-agent.log"
+LOGFILE="/opt/ai-agent/logs/backend-ai-agent.log"
 AGENT_NAME="AGENT_NAME_PLACEHOLDER"
 CONFIG_PATH="/opt/backend-ai-config.json"
 
 # Source Unraid functions if available
 [ -f /etc/rc.d/rc.functions ] && . /etc/rc.d/rc.functions
 
+# Ensure log directory exists
+mkdir -p "$(dirname "$LOGFILE")"
+
 start() {
     echo "Starting AI Agent..."
     
-    # Check if already running
-    if [ -f "$PIDFILE" ]; then
-        PID=$(cat "$PIDFILE")
-        if ps -p "$PID" > /dev/null 2>&1; then
-            echo "AI Agent is already running (PID: $PID)"
-            return 1
-        else
-            # Stale pidfile
-            rm -f "$PIDFILE"
-        fi
+    # Check if already running using process detection
+    EXISTING_PIDS=$(ps aux | grep "node.*ai-agent/agent/dist/api/index.js" | grep -v grep | awk '{print $2}')
+    if [ -n "$EXISTING_PIDS" ]; then
+        echo "AI Agent is already running (PIDs: $EXISTING_PIDS)"
+        return 1
     fi
+    
+    # Get correlationId if provided as second parameter
+    CORRELATION_ID="$2"
     
     # Set up environment and start
     cd "$AGENT_DIR"
@@ -37,19 +37,22 @@ start() {
     export CONFIG_PATH="$CONFIG_PATH"
     export NODE_ENV="production"
     
-    # Start the agent
-    nohup "$NODE_BIN" "$AGENT_DIR/dist/api/index.js" > "$LOGFILE" 2>&1 &
-    PID=$!
-    echo $PID > "$PIDFILE"
+    # Start the agent with optional correlationId
+    if [ -n "$CORRELATION_ID" ]; then
+        echo "Starting with correlationId: $CORRELATION_ID"
+        nohup "$NODE_BIN" "$AGENT_DIR/dist/api/index.js" "$CORRELATION_ID" > "$LOGFILE" 2>&1 &
+    else
+        nohup "$NODE_BIN" "$AGENT_DIR/dist/api/index.js" > "$LOGFILE" 2>&1 &
+    fi
+    STARTED_PID=$!
     
     # Verify it started
     sleep 2
-    if ps -p "$PID" > /dev/null 2>&1; then
-        echo "AI Agent started successfully (PID: $PID)"
+    if ps -p "$STARTED_PID" > /dev/null 2>&1; then
+        echo "AI Agent started successfully (PID: $STARTED_PID)"
         return 0
     else
         echo "AI Agent failed to start"
-        rm -f "$PIDFILE"
         tail -20 "$LOGFILE"
         return 1
     fi
@@ -58,29 +61,37 @@ start() {
 stop() {
     echo "Stopping AI Agent..."
     
-    if [ -f "$PIDFILE" ]; then
-        PID=$(cat "$PIDFILE")
-        if ps -p "$PID" > /dev/null 2>&1; then
-            kill "$PID"
-            
-            # Wait for process to stop
-            for i in {1..10}; do
-                if ! ps -p "$PID" > /dev/null 2>&1; then
-                    break
-                fi
-                sleep 1
-            done
-            
-            # Force kill if still running
-            if ps -p "$PID" > /dev/null 2>&1; then
-                kill -9 "$PID"
+    # Find all agent processes using process detection
+    AGENT_PIDS=$(ps aux | grep "node.*ai-agent/agent/dist/api/index.js" | grep -v grep | awk '{print $2}')
+    
+    if [ -n "$AGENT_PIDS" ]; then
+        echo "Found AI Agent processes: $AGENT_PIDS"
+        
+        # Try graceful shutdown first
+        for PID in $AGENT_PIDS; do
+            echo "Sending TERM signal to PID $PID"
+            kill "$PID" 2>/dev/null || true
+        done
+        
+        # Wait for processes to stop
+        echo "Waiting for processes to stop..."
+        for i in {1..10}; do
+            REMAINING_PIDS=$(ps aux | grep "node.*ai-agent/agent/dist/api/index.js" | grep -v grep | awk '{print $2}')
+            if [ -z "$REMAINING_PIDS" ]; then
+                echo "All AI Agent processes stopped gracefully"
+                return 0
             fi
-            
-            rm -f "$PIDFILE"
-            echo "AI Agent stopped"
-        else
-            echo "AI Agent is not running (stale pidfile)"
-            rm -f "$PIDFILE"
+            sleep 1
+        done
+        
+        # Force kill any remaining processes
+        REMAINING_PIDS=$(ps aux | grep "node.*ai-agent/agent/dist/api/index.js" | grep -v grep | awk '{print $2}')
+        if [ -n "$REMAINING_PIDS" ]; then
+            echo "Force killing remaining processes: $REMAINING_PIDS"
+            for PID in $REMAINING_PIDS; do
+                kill -9 "$PID" 2>/dev/null || true
+            done
+            echo "AI Agent processes force stopped"
         fi
     else
         echo "AI Agent is not running"
@@ -88,22 +99,19 @@ stop() {
 }
 
 status() {
-    if [ -f "$PIDFILE" ]; then
-        PID=$(cat "$PIDFILE")
-        if ps -p "$PID" > /dev/null 2>&1; then
-            echo "AI Agent is running (PID: $PID)"
-            
-            # Check if API is responding
-            if curl -s http://localhost:3080/api/status > /dev/null 2>&1; then
-                echo "Agent API is responding on port 3080"
-            else
-                echo "Warning: Agent process is running but API is not responding"
-            fi
-            return 0
+    # Find all agent processes using process detection
+    AGENT_PIDS=$(ps aux | grep "node.*ai-agent/agent/dist/api/index.js" | grep -v grep | awk '{print $2}')
+    
+    if [ -n "$AGENT_PIDS" ]; then
+        echo "AI Agent is running (PIDs: $AGENT_PIDS)"
+        
+        # Check if API is responding
+        if curl -s http://localhost:3080/api/status > /dev/null 2>&1; then
+            echo "Agent API is responding on port 3080"
         else
-            echo "AI Agent is not running (stale pidfile)"
-            return 1
+            echo "Warning: Agent processes are running but API is not responding"
         fi
+        return 0
     else
         echo "AI Agent is not running"
         return 1
@@ -112,7 +120,7 @@ status() {
 
 case "$1" in
     start)
-        start
+        start "$@"
         ;;
     stop)
         stop
@@ -120,13 +128,13 @@ case "$1" in
     restart)
         stop
         sleep 2
-        start
+        start "$@"
         ;;
     status)
         status
         ;;
     *)
-        echo "Usage: $0 {start|stop|restart|status}"
+        echo "Usage: $0 {start|stop|restart|status} [correlationId]"
         exit 1
         ;;
 esac

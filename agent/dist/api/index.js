@@ -89,7 +89,7 @@ catch (error) {
     process.exit(1);
 }
 const PORT = configLoader.getAgentPort();
-const AGENT_ID = myAgent.name;
+const AGENT_ID = process.env.AGENT_NAME || myAgent?.name || 'unknown';
 const HUB_URL = configLoader.getHubUrl();
 const AGENT_DIR = config.defaults.agent.installPath;
 // Initialize logging with local directory
@@ -113,18 +113,14 @@ const AGENT_DIR = config.defaults.agent.installPath;
         startupLog(1, `Failed to initialize local logging: ${error}`);
     }
 })();
-// Read correlationId from file if it exists
-let CORRELATION_ID;
-try {
-    const correlationFile = path_1.default.join(AGENT_DIR, '.correlationId');
-    CORRELATION_ID = fs_1.default.readFileSync(correlationFile, 'utf8').trim();
-    // Delete the file after reading
-    fs_1.default.unlinkSync(correlationFile);
-    startupLog(1, `Read correlationId from file: ${CORRELATION_ID}`);
+// Read correlationId from command-line argument
+let CORRELATION_ID = process.argv[2];
+if (CORRELATION_ID) {
+    startupLog(1, `Starting with correlationId: ${CORRELATION_ID}`);
 }
-catch {
-    // No correlation file, that's OK
-}
+// Keep two copies for dual-memory approach
+let CORRELATION_ID_FOR_CALLBACK = CORRELATION_ID;
+let CORRELATION_ID_FOR_POLLING = CORRELATION_ID;
 startupLog(2, `Configuration: PORT=${PORT}, AGENT_ID=${AGENT_ID}`);
 if (CORRELATION_ID) {
     startupLog(1, `Starting with correlationId: ${CORRELATION_ID}`);
@@ -141,6 +137,8 @@ try {
     const mainConfig = config;
     if (mainConfig?.anthropic?.apiKey) {
         startupLog(2, 'Initializing AI command processor...');
+        console.log(`API key type: ${typeof mainConfig.anthropic.apiKey}, length: ${mainConfig.anthropic.apiKey.length}`);
+        console.log(`API key starts with: ${mainConfig.anthropic.apiKey.substring(0, 20)}...`);
         aiProcessor = new ai_command_processor_1.AgentAICommandProcessor(mainConfig.anthropic.apiKey, capabilitiesManager);
         startupLog(1, 'AI command processor initialized with natural language capabilities');
     }
@@ -169,13 +167,14 @@ app.get('/api/status', async (req, res) => {
     const packageJson = require('../../package.json');
     res.json({
         agentId: AGENT_ID,
+        agentName: AGENT_ID, // Add agentName for compatibility
         status: 'online',
         version: packageJson.version,
         workingDirectory: process.cwd(),
         platform: osInfo.platform,
         hostname: osInfo.hostname,
         timestamp: new Date().toISOString(),
-        correlationId: CORRELATION_ID,
+        correlationId: CORRELATION_ID_FOR_POLLING,
         system: {
             os: osInfo.distro,
             kernel: osInfo.kernel,
@@ -238,6 +237,18 @@ app.get('/api/capabilities/:path(*)', async (req, res) => {
     }
     catch (error) {
         res.status(404).json({ error: error.message });
+    }
+});
+// Acknowledge correlationId receipt from hub
+app.post('/api/correlation/acknowledge', async (req, res) => {
+    const { correlationId } = req.body;
+    if (correlationId === CORRELATION_ID_FOR_POLLING) {
+        console.log(`[CORRELATION] Hub acknowledged receipt of ${correlationId}, clearing from polling memory`);
+        CORRELATION_ID_FOR_POLLING = undefined;
+        res.json({ success: true, message: 'Correlation acknowledged' });
+    }
+    else {
+        res.json({ success: false, message: 'Correlation not found or already cleared' });
     }
 });
 // Command execution with request ID tracking
@@ -775,6 +786,27 @@ const server = app.listen(PORT, '0.0.0.0', async () => {
     catch (error) {
         startupLog(1, `Hub notification failed: ${error}`);
         console.error('Failed to notify hub:', error);
+    }
+    // If we have a correlationId for callback, try to send it
+    if (CORRELATION_ID_FOR_CALLBACK) {
+        startupLog(2, `Sending correlation callback to hub for ${CORRELATION_ID_FOR_CALLBACK}`);
+        try {
+            await axios_1.default.post(`${HUB_URL}/api/executions/${CORRELATION_ID_FOR_CALLBACK}/complete`, {
+                result: 'Agent started successfully',
+                agentId: AGENT_ID,
+                timestamp: new Date().toISOString()
+            }, {
+                headers: { 'Content-Type': 'application/json' },
+                timeout: 5000
+            });
+            startupLog(2, 'Correlation callback successful');
+            // Clear callback memory after successful send
+            CORRELATION_ID_FOR_CALLBACK = undefined;
+        }
+        catch (error) {
+            startupLog(1, `Correlation callback failed: ${error}`);
+            // Keep it in memory for polling fallback
+        }
     }
 });
 // Handle server errors

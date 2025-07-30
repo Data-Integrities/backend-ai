@@ -9,12 +9,15 @@
 
 MANAGER_DIR="/opt/ai-agent/manager"
 NODE_BIN="/usr/local/bin/node"
-LOGFILE="/var/log/ai-agent-manager.log"
+LOGFILE="/opt/ai-agent/logs/ai-agent-manager.log"
 AGENT_NAME="AGENT_NAME_PLACEHOLDER"
 CONFIG_PATH="/opt/backend-ai-config.json"
 
 # Source Unraid functions if available
 [ -f /etc/rc.d/rc.functions ] && . /etc/rc.d/rc.functions
+
+# Ensure log directory exists
+mkdir -p "$(dirname "$LOGFILE")"
 
 # Function to send callback to hub
 sendCallback() {

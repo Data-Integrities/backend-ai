@@ -1,6 +1,6 @@
 {
   "name": "@backend-ai/agent-manager",
-  "version": "2.1.38",
+  "version": "2.1.74",
   "description": "Agent Manager for Backend AI",
   "main": "dist/index.js",
   "scripts": {

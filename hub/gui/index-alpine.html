@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="cache-control" content="no-cache, no-store, must-revalidate">
+    <title>Infrastructure AI Hub (v2.1.44 - Alpine)</title>
+    
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    
+    <!-- Shoelace -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.15.0/cdn/themes/dark.css" />
+    <script type="module" src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.15.0/cdn/shoelace-autoloader.js"></script>
+    
+    <style>
+        body {
+            margin: 0;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        
+        .app-container {
+            display: flex;
+            height: 100vh;
+        }
+        
+        .sidebar {
+            width: 300px;
+            background: #2d2d2d;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+        }
+        
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        
+        .message {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+        }
+        
+        .message.user {
+            flex-direction: row-reverse;
+        }
+        
+        .message-bubble {
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            background: #2d2d2d;
+            position: relative;
+        }
+        
+        .message.user .message-bubble {
+            background: #0066cc;
+        }
+        
+        .input-area {
+            padding: 20px;
+            border-top: 1px solid #333;
+        }
+        
+        .agent-card {
+            margin-bottom: 12px;
+        }
+        
+        sl-tab-group {
+            --track-width: 2px;
+            height: 100%;
+        }
+        
+        sl-tab-panel {
+            height: 100%;
+            padding: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container" x-data="hubApp()">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <h2 style="margin-bottom: 20px;">🚀 AI Control Hub</h2>
+            
+            <h3>Connected Agents</h3>
+            <div style="margin-top: 16px;">
+                <template x-for="agent in agents" :key="agent.name">
+                    <sl-card class="agent-card">
+                        <div slot="header" style="display: flex; align-items: center; gap: 8px;">
+                            <sl-badge :variant="agent.status === 'online' ? 'success' : 'danger'" pill>
+                                <span x-text="agent.status === 'online' ? '●' : '○'"></span>
+                            </sl-badge>
+                            <span x-text="agent.name"></span>
+                        </div>
+                        <sl-checkbox 
+                            :checked="selectedAgents.includes(agent.name)"
+                            @sl-change="toggleAgent(agent.name)">
+                            Select for commands
+                        </sl-checkbox>
+                    </sl-card>
+                </template>
+            </div>
+            
+            <sl-button variant="primary" style="width: 100%; margin-top: 20px;" @click="createNewTab()">
+                New Chat
+            </sl-button>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="main-content">
+            <sl-tab-group>
+                <template x-for="[tabId, tab] in tabs" :key="tabId">
+                    <sl-tab 
+                        slot="nav" 
+                        :panel="tabId"
+                        :active="tabId === activeTabId"
+                        @click="switchTab(tabId)"
+                        closable
+                        @sl-close="closeTab(tabId)">
+                        <span x-text="tab.title"></span>
+                    </sl-tab>
+                </template>
+                
+                <template x-for="[tabId, tab] in tabs" :key="tabId">
+                    <sl-tab-panel :name="tabId">
+                        <div class="chat-container">
+                            <div class="messages-container" :id="'messages-' + tabId">
+                                <template x-for="message in tab.messages" :key="message.id">
+                                    <div :class="'message ' + (message.isUser ? 'user' : 'ai')">
+                                        <div class="message-avatar" x-text="message.isUser ? '👤' : '🤖'"></div>
+                                        <div class="message-bubble">
+                                            <div x-html="message.content"></div>
+                                            <template x-if="message.errorDetails">
+                                                <sl-details summary="Error Details" style="margin-top: 12px;">
+                                                    <pre x-text="message.errorDetails" style="overflow-x: auto;"></pre>
+                                                </sl-details>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                            
+                            <div class="input-area">
+                                <sl-textarea
+                                    :id="'input-' + tabId"
+                                    placeholder="Type your message..."
+                                    rows="3"
+                                    resize="auto"
+                                    @keydown="handleKeydown($event, tabId)"
+                                    style="width: 100%;">
+                                </sl-textarea>
+                                <sl-button 
+                                    variant="primary" 
+                                    @click="sendMessage(tabId)"
+                                    style="margin-top: 12px;">
+                                    Send →
+                                </sl-button>
+                            </div>
+                        </div>
+                    </sl-tab-panel>
+                </template>
+            </sl-tab-group>
+        </div>
+    </div>
+    
+    <script>
+        function hubApp() {
+            return {
+                API_BASE: window.location.origin + '/api',
+                selectedAgents: [],
+                activeTabId: 'tab-1',
+                tabs: new Map([['tab-1', { 
+                    title: 'Welcome', 
+                    messages: [{
+                        id: 'msg-1',
+                        content: 'Welcome to Backend AI Hub! Select agents and start chatting.',
+                        isUser: false,
+                        timestamp: new Date()
+                    }]
+                }]]),
+                agents: [],
+                tabCounter: 1,
+                
+                async init() {
+                    console.log('Initializing Alpine.js hub');
+                    await this.loadAgents();
+                    setInterval(() => this.loadAgents(), 10000);
+                },
+                
+                async loadAgents() {
+                    try {
+                        const response = await fetch(`${this.API_BASE}/agents`);
+                        const data = await response.json();
+                        this.agents = data.agents.map(agent => ({
+                            ...agent,
+                            status: agent.lastSeen && (Date.now() - new Date(agent.lastSeen).getTime() < 60000) ? 'online' : 'offline'
+                        }));
+                    } catch (error) {
+                        console.error('Failed to load agents:', error);
+                    }
+                },
+                
+                toggleAgent(agentName) {
+                    const index = this.selectedAgents.indexOf(agentName);
+                    if (index > -1) {
+                        this.selectedAgents.splice(index, 1);
+                    } else {
+                        this.selectedAgents.push(agentName);
+                    }
+                },
+                
+                createNewTab() {
+                    this.tabCounter++;
+                    const tabId = `tab-${this.tabCounter}`;
+                    this.tabs.set(tabId, {
+                        title: `Chat ${this.tabCounter}`,
+                        messages: []
+                    });
+                    this.activeTabId = tabId;
+                },
+                
+                switchTab(tabId) {
+                    this.activeTabId = tabId;
+                },
+                
+                closeTab(tabId) {
+                    this.tabs.delete(tabId);
+                    if (this.activeTabId === tabId && this.tabs.size > 0) {
+                        this.activeTabId = this.tabs.keys().next().value;
+                    }
+                },
+                
+                async sendMessage(tabId) {
+                    const input = document.getElementById(`input-${tabId}`);
+                    const message = input.value.trim();
+                    if (!message) return;
+                    
+                    // Add user message
+                    const tab = this.tabs.get(tabId);
+                    tab.messages.push({
+                        id: `msg-${Date.now()}-user`,
+                        content: message,
+                        isUser: true,
+                        timestamp: new Date()
+                    });
+                    
+                    // Clear input
+                    input.value = '';
+                    
+                    // Send to selected agents
+                    if (this.selectedAgents.length === 0) {
+                        tab.messages.push({
+                            id: `msg-${Date.now()}-error`,
+                            content: 'Please select at least one agent to send commands to.',
+                            isUser: false,
+                            timestamp: new Date()
+                        });
+                        return;
+                    }
+                    
+                    // Send command
+                    try {
+                        const response = await fetch(`${this.API_BASE}/command/v2`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                targets: this.selectedAgents,
+                                command: message
+                            })
+                        });
+                        
+                        const data = await response.json();
+                        
+                        // Add response
+                        tab.messages.push({
+                            id: `msg-${Date.now()}-response`,
+                            content: data.message || 'Command sent successfully',
+                            isUser: false,
+                            timestamp: new Date(),
+                            errorDetails: data.error ? JSON.stringify(data.error, null, 2) : null
+                        });
+                        
+                        // Scroll to bottom
+                        this.$nextTick(() => {
+                            const container = document.getElementById(`messages-${tabId}`);
+                            container.scrollTop = container.scrollHeight;
+                        });
+                        
+                    } catch (error) {
+                        tab.messages.push({
+                            id: `msg-${Date.now()}-error`,
+                            content: `Error: ${error.message}`,
+                            isUser: false,
+                            timestamp: new Date(),
+                            errorDetails: error.stack
+                        });
+                    }
+                },
+                
+                handleKeydown(event, tabId) {
+                    if (event.key === 'Enter' && !event.shiftKey) {
+                        event.preventDefault();
+                        this.sendMessage(tabId);
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+</html>

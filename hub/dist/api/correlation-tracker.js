@@ -22,9 +22,10 @@ class CorrelationTracker extends events_1.EventEmitter {
             logs: []
         };
         this.executions.set(correlationId, execution);
-        // Add initial log entry
-        this.addLog(correlationId, `[START] Execution started: ${command} on ${agent}`);
-        this.addLog(correlationId, `[START] CorrelationId: ${correlationId}`);
+        // Add initial log entry with appropriate action label
+        const actionLabel = command.toLowerCase().includes('stop') ? '[STOP]' : '[START]';
+        this.addLog(correlationId, `${actionLabel} Execution started: ${command} on ${agent}`);
+        this.addLog(correlationId, `${actionLabel} CorrelationId: ${correlationId}`);
         // Set timeout for this execution
         const timeout = setTimeout(() => {
             this.addLog(correlationId, '[TIMEOUT] Execution timed out after 60 seconds');

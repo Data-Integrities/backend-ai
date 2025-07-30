@@ -154,5 +154,7 @@ export declare class ConfigLoader {
             manager?: Partial<BackendAIConfig["defaults"]["manager"]>;
         };
     } | undefined;
+    private decryptConfig;
+    private decryptValue;
 }
 //# sourceMappingURL=ConfigLoader.d.ts.map

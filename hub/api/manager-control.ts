@@ -64,12 +64,17 @@ export function setupManagerControlEndpoints(app: Express, httpAgents: SimpleHtt
       if (action === 'start' || action === 'restart') {
         // Add correlationId as environment variable for the command
         command = `CORRELATION_ID="${correlationId}" ${command}`;
-      } else if (action === 'stop' && serviceManagerType === 'systemd') {
-        // For systemd stop, use wrapper script that can send callback
-        command = `/opt/ai-agent/ai-agent-manager-stop.sh "${correlationId}"`;
       } else if (action === 'stop') {
-        // For non-systemd, add correlationId as environment variable
-        command = `CORRELATION_ID="${correlationId}" ${command}`;
+        // For stop, use wrapper script that can send callback
+        if (serviceManagerType === 'systemd') {
+          command = `/opt/ai-agent/ai-agent-manager-stop.sh "${correlationId}"`;
+        } else if (serviceManagerType === 'rc.d') {
+          // For unraid, use rc.d version of the script
+          command = `/opt/ai-agent/rc.d/ai-agent-manager-stop.sh "${correlationId}"`;
+        } else {
+          // Fallback - just add correlationId as environment variable
+          command = `CORRELATION_ID="${correlationId}" ${command}`;
+        }
       }
       
       // Execute command via SSH

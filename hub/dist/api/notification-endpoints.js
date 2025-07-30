@@ -54,6 +54,12 @@ function setupEnhancedEndpoints(app, httpAgents) {
                         const { correlationTracker } = require('./correlation-tracker');
                         correlationTracker.addLog(agent.pendingCorrelationId, `[NOTIFICATION] Agent ${agentId} sent offline notification`);
                         correlationTracker.recordPollingDetection(agent.pendingCorrelationId);
+                        // Complete the execution since agent is now offline
+                        correlationTracker.completeExecution(agent.pendingCorrelationId, {
+                            result: 'Agent stopped successfully (offline notification received)',
+                            agentId: agentId,
+                            detectedBy: 'notification'
+                        });
                         // Clear the pending correlationId
                         httpAgents.clearPendingCorrelationId(agentId);
                     }

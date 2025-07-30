@@ -1,11 +1,11 @@
 {
   "system": {
     "name": "Backend AI Infrastructure Control",
-    "version": "2.1.38",
+    "version": "2.1.74",
     "description": "Central configuration for Backend AI hub, agents, and managers"
   },
   "anthropic": {
-    "apiKey": "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"
+    "apiKey": "EV:U2FsdGVkX1/xXI39InQPs2Ee1rLbZYT9CjIPnxWwTP6n6KnVAohuk1yUxMzXl/UHh1eUQj4UCRiuHs6BU0ypJvq7Gb20D3qHbzEQKs7WR2P+MGc2jGmkkzOQvDN1q0fui//D/EN6VqP+THP9PcsrDR7VAwiN6Hx/OPRw6YjCzMI="
   },
   "hub": {
     "ip": "192.168.1.30",
@@ -33,12 +33,14 @@
     "agent": {
       "port": 3080,
       "installPath": "/opt/ai-agent/agent",
-      "serviceName": "ai-agent"
+      "serviceName": "ai-agent",
+      "processPattern": "node.*agent/dist/api/index.js"
     },
     "manager": {
       "port": 3081,
       "installPath": "/opt/ai-agent/manager",
-      "serviceName": "ai-agent-manager"
+      "serviceName": "ai-agent-manager",
+      "processPattern": "node.*manager/dist/index.js"
     },
     "network": {
       "httpTimeout": 5000,

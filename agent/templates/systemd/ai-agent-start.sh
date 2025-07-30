@@ -6,17 +6,20 @@
 # Usage: ai-agent-start.sh [correlationId]
 #
 
-AGENT_DIR="/opt/ai-agent/agent"
 CORRELATION_ID="$1"
 
-# If correlationId provided, write it to a file for the agent to read
+# If correlationId provided, pass it via environment variable
 if [ -n "$CORRELATION_ID" ]; then
-    echo "$CORRELATION_ID" > "$AGENT_DIR/.correlationId"
     echo "Starting agent with correlationId: $CORRELATION_ID"
+    # Set environment variable for this systemctl invocation
+    systemctl set-environment CORRELATION_ID="$CORRELATION_ID"
+    systemctl start ai-agent
+    # Clear the environment variable after starting
+    systemctl unset-environment CORRELATION_ID
+else
+    # Start normally without correlationId
+    systemctl start ai-agent
 fi
-
-# Start the agent service
-systemctl start ai-agent
 
 # For systemd, the service will return immediately, but that's OK
 # The manager will track completion via the callback

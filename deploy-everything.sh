@@ -421,7 +421,9 @@ elif [ -d /etc/rc.d ]; then
         # Copy wrapper scripts
         mkdir -p /opt/ai-agent/rc.d
         cp -f rc.d/ai-agent-start.sh /opt/ai-agent/rc.d/
+        cp -f rc.d/ai-agent-manager-stop.sh /opt/ai-agent/rc.d/
         chmod +x /opt/ai-agent/rc.d/ai-agent-start.sh
+        chmod +x /opt/ai-agent/rc.d/ai-agent-manager-stop.sh
         # Set AGENT_NAME in service files
         sed -i "s/AGENT_NAME_PLACEHOLDER/\$WORKER_NAME/g" /etc/rc.d/rc.ai-agent
         sed -i "s/AGENT_NAME_PLACEHOLDER/\$WORKER_NAME/g" /etc/rc.d/rc.ai-agent-manager

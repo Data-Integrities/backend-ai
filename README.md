@@ -49,49 +49,19 @@ Backend AI transforms infrastructure management from command-line complexity to 
 #### 🧠 AI Command Hub (`/hub`)
 The central brain that processes natural language commands using Claude AI and orchestrates actions across your infrastructure.
 
-**Features:**
-- Natural language processing with Claude AI
-- HTTP polling architecture for agent communication
-- REST API for external integrations
-- Web UI for monitoring and control
-- Command risk assessment and confirmation
-- Automatic agent discovery and health monitoring
-
-**Tech Stack:** TypeScript, Express.js, Claude API
+- **Features:** Natural language processing, HTTP polling, REST API, Web UI, command risk assessment
+- **Tech Stack:** TypeScript, Express.js, Claude API
+- **Documentation:** [Hub README](/hub/README.md)
 
 #### 🤖 Linux Agent (`/agent`)
 Lightweight agent that runs on Linux servers, containers, and VMs to execute commands safely.
 
-**Capabilities:**
-- Service management (start/stop/restart/status)
-- Configuration file management with automatic backups
-- Log analysis and error detection
-- System resource monitoring
-- Network diagnostics
-- Automatic updates from hub
-- Event notifications for issues
+- **Capabilities:** Service management, configuration backups, log analysis, resource monitoring
+- **Safety:** Command validation, automatic backups, rollback on failures
+- **Documentation:** [Agent README](/agent/README.md)
 
-**Safety Features:**
-- Command validation before execution
-- Automatic configuration backups
-- Rollback on failures
-- Sandboxed execution
-
-#### 🎮 Proxmox Agent (`/agent-proxmox`)
-Specialized agent that integrates with Proxmox VE API for cluster-wide management.
-
-**Capabilities:**
-- VM/Container lifecycle (start/stop/create/delete)
-- Live migration between nodes
-- Resource monitoring across cluster
-- Backup management
-- **Self-deployment to other Proxmox nodes**
-- Network and storage management
-
-**Unique Features:**
-- Can install itself on other Proxmox nodes
-- Monitors cluster health
-- Automatic workload balancing suggestions
+#### 🎮 Proxmox Agent (`/agent-proxmox`) *[Deprecated - use standard agent]*
+Note: Proxmox hosts now use the standard agent with Proxmox-specific capabilities.
 
 #### 🪟 Windows Agent (`/agent-windows`) *[Planned]*
 For managing Windows build servers and runners.
@@ -101,6 +71,7 @@ For managing macOS build machines.
 
 #### 📦 Shared Types (`/shared`)
 TypeScript type definitions shared across all components.
+- **Documentation:** [Shared Types README](/shared/README.md)
 
 ## 🚀 Quick Start
 
@@ -286,10 +257,24 @@ PVE1_PASSWORD=secure-password
 - **Port Configuration**: Hub runs on port 80, all agents run on port 3080
 - **Network Architecture**: Hub polls agents via HTTP - agents never initiate connections
 - **Deployment Methods**: Native for Linux/Proxmox, Docker for Unraid/Windows
-- **Documentation**: 
-  - [Agent Installation Architecture](./AGENT_INSTALLATION_ARCHITECTURE.md) - Detailed explanation
-  - [Agent Deployment Quick Reference](./AGENT_DEPLOYMENT_QUICKREF.md) - Quick commands
-  - [Deployment Guide](./DEPLOYMENT_GUIDE.md) - Decision flowchart
+- **Manager Pattern**: All services use a companion manager on port 3081 - see [Manager Pattern](/docs/patterns/MANAGER_PATTERN.md)
+
+### Documentation Structure
+
+#### Architecture & Patterns
+- [Agent Installation Architecture](./AGENT_INSTALLATION_ARCHITECTURE.md) - Detailed deployment explanation
+- [Manager Pattern](/docs/patterns/MANAGER_PATTERN.md) - Shared manager service pattern
+- [Architecture Decisions](/docs/architecture/) - Key design choices
+
+#### Deployment Guides
+- [Agent Deployment Quick Reference](./AGENT_DEPLOYMENT_QUICKREF.md) - Quick commands
+- [Deployment Guide](./DEPLOYMENT_GUIDE.md) - Decision flowchart
+- [Deployment Scripts](/docs/deployment/) - Script documentation
+
+#### Component Documentation
+- [Hub Documentation](/hub/README.md) - Hub specifics
+- [Agent Documentation](/agent/README.md) - Agent specifics
+- [Shared Types](/shared/README.md) - Type definitions
 
 ### Agent Configuration
 Agents are automatically configured during deployment with appropriate settings for their OS

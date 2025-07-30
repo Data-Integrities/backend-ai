@@ -10,7 +10,7 @@ WorkingDirectory=/opt/ai-agent/agent
 Environment="NODE_ENV=production"
 Environment="AGENT_NAME=AGENT_NAME_PLACEHOLDER"
 Environment="CONFIG_PATH=/opt/backend-ai-config.json"
-ExecStart=/usr/bin/node /opt/ai-agent/agent/dist/api/index.js
+ExecStart=/usr/bin/node /opt/ai-agent/agent/dist/api/index.js $CORRELATION_ID
 Restart=always
 RestartSec=10
 

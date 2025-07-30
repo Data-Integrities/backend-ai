@@ -92,6 +92,21 @@ if [ -f "agent/manager/index.ts" ]; then
     print_status "Manager source: Updated MANAGER_VERSION constant"
 fi
 
+# Update hub HTML file version
+if [ -f "hub/gui/index.html" ]; then
+    # Extract just the major.minor.patch version number from VERSION
+    VERSION_NUM=$(echo "$VERSION" | grep -o '^[0-9]\+\.[0-9]\+\.[0-9]\+')
+    
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        # Update the HUB_VERSION constant
+        sed -i '' "s/const HUB_VERSION = '[^']*'/const HUB_VERSION = '$VERSION_NUM'/" hub/gui/index.html
+    else
+        # Update the HUB_VERSION constant
+        sed -i "s/const HUB_VERSION = '[^']*'/const HUB_VERSION = '$VERSION_NUM'/" hub/gui/index.html
+    fi
+    print_status "Hub HTML: Updated HUB_VERSION to $VERSION_NUM"
+fi
+
 echo ""
 print_status "All versions updated to $VERSION"
 echo ""

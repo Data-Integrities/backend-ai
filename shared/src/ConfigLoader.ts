@@ -13,6 +13,7 @@ export interface BackendAIConfig {
     port: number;
     name: string;
     description: string;
+    nodePath: string;
     paths: {
       installation: string;
     };
@@ -62,7 +63,6 @@ export interface BackendAIConfig {
         enable?: string;
         disable?: string;
       };
-      nodePath: string;
       logCommand: string;
     };
   };
@@ -73,6 +73,7 @@ export interface BackendAIConfig {
     serviceManager: string;
     systemType: string;
     accessUser: string;
+    nodePath: string;
     aliases: string[];
     capabilities: {
       [key: string]: boolean;

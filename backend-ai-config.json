@@ -1,7 +1,7 @@
 {
   "system": {
     "name": "Backend AI Infrastructure Control",
-    "version": "2.1.74",
+    "version": "2.1.87",
     "description": "Central configuration for Backend AI hub, agents, and managers"
   },
   "anthropic": {
@@ -12,6 +12,7 @@
     "port": 80,
     "name": "backend-ai-hub",
     "description": "Central command and control hub",
+    "nodePath": "/usr/bin/node",
     "paths": {
       "installation": "/opt/backend-ai/hub"
     },
@@ -63,7 +64,6 @@
         "enable": "systemctl enable {service}",
         "disable": "systemctl disable {service}"
       },
-      "nodePath": "/usr/bin/node",
       "logCommand": "journalctl -u {service} --no-pager"
     },
     "rc.d": {
@@ -74,7 +74,6 @@
         "restart": "/etc/rc.d/rc.{service} restart",
         "status": "/etc/rc.d/rc.{service} status"
       },
-      "nodePath": "/usr/local/bin/node",
       "logCommand": "tail -n 100 {logPath}"
     }
   },
@@ -86,6 +85,7 @@
       "serviceManager": "systemd",
       "systemType": "ubuntu",
       "accessUser": "root",
+      "nodePath": "/usr/bin/node",
       "aliases": ["nginx", "forwarder", "dns router", "web server"],
       "capabilities": {
         "nginx": true,
@@ -100,6 +100,7 @@
       "serviceManager": "systemd",
       "systemType": "debian",
       "accessUser": "root",
+      "nodePath": "/usr/bin/node",
       "aliases": ["proxmox", "hypervisor", "vm host", "pve1"],
       "capabilities": {
         "virtualization": true,
@@ -114,6 +115,7 @@
       "serviceManager": "systemd",
       "systemType": "debian",
       "accessUser": "root",
+      "nodePath": "/usr/bin/node",
       "aliases": ["proxmox", "hypervisor", "vm host", "pve2"],
       "capabilities": {
         "virtualization": true,
@@ -128,6 +130,7 @@
       "serviceManager": "systemd",
       "systemType": "debian",
       "accessUser": "root",
+      "nodePath": "/usr/bin/node",
       "aliases": ["proxmox", "hypervisor", "vm host", "pve3"],
       "capabilities": {
         "virtualization": true,
@@ -142,6 +145,7 @@
       "serviceManager": "rc.d",
       "systemType": "unraid",
       "accessUser": "root",
+      "nodePath": "/usr/local/bin/node",
       "aliases": ["unraid", "nas", "storage", "file server"],
       "capabilities": {
         "docker": true,

@@ -64,6 +64,17 @@ export function setupCorrelationEndpoints(app: Express) {
     res.json({ executions });
   });
 
+  // Get timeout configuration
+  app.get('/api/executions/config/timeouts', (req, res) => {
+    const timeoutConfig = correlationTracker.getTimeoutConfig();
+    res.json({
+      defaultTimeoutMs: timeoutConfig.defaultTimeout,
+      managerTimeoutMs: timeoutConfig.managerTimeout,
+      defaultTimeoutSeconds: timeoutConfig.defaultTimeout / 1000,
+      managerTimeoutSeconds: timeoutConfig.managerTimeout / 1000
+    });
+  });
+
   // Mark execution as complete (called by agents/managers)
   app.post('/api/executions/:correlationId/complete', (req, res) => {
     const { correlationId } = req.params;
@@ -73,9 +84,16 @@ export function setupCorrelationEndpoints(app: Express) {
     const execution = correlationTracker.getExecution(correlationId);
     if (execution) {
       const duration = Date.now() - execution.startTime;
-      correlationTracker.addLog(correlationId, `[CALLBACK] Completion callback received from ${req.ip}`);
+      const agentInfo = result?.agentId || result?.agentName || 'unknown';
+      correlationTracker.addLog(correlationId, `[CALLBACK] Completion callback received from ${agentInfo} (IP: ${req.ip})`);
       correlationTracker.addLog(correlationId, `[CALLBACK] Result: ${JSON.stringify(result)}`);
       correlationTracker.addLog(correlationId, `[CALLBACK] Total duration: ${duration}ms (${(duration/1000).toFixed(1)}s)`);
+      
+      // Log if agent name is missing
+      if (!result?.agentId && !result?.agentName) {
+        correlationTracker.addLog(correlationId, `[WARNING] Callback missing agent identification`);
+        console.warn(`[CALLBACK] Missing agent name for ${correlationId}:`, result);
+      }
     }
     
     correlationTracker.completeExecution(correlationId, result);

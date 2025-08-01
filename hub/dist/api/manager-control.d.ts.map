@@ -1,1 +1,1 @@
-{"version":3,"file":"manager-control.d.ts","sourceRoot":"","sources":["../../api/manager-control.ts"],"names":[],"mappings":"AAEA,OAAO,EAAE,OAAO,EAAE,MAAM,SAAS,CAAC;AAClC,OAAO,EAAE,gBAAgB,EAAE,MAAM,oBAAoB,CAAC;AAYtD,wBAAgB,4BAA4B,CAAC,GAAG,EAAE,OAAO,EAAE,UAAU,EAAE,gBAAgB,QAkNtF"}
+{"version":3,"file":"manager-control.d.ts","sourceRoot":"","sources":["../../api/manager-control.ts"],"names":[],"mappings":"AAEA,OAAO,EAAE,OAAO,EAAE,MAAM,SAAS,CAAC;AAClC,OAAO,EAAE,gBAAgB,EAAE,MAAM,oBAAoB,CAAC;AAYtD,wBAAgB,4BAA4B,CAAC,GAAG,EAAE,OAAO,EAAE,UAAU,EAAE,gBAAgB,QA6RtF"}

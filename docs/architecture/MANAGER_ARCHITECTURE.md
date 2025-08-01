@@ -115,7 +115,7 @@ Identical to hub manager:
 ### 1. Manual Deployment
 ```bash
 # Deploy new version
-./deploy-version.sh 2.0.11
+./update-versions.sh 2.0.11
 
 # This script:
 # 1. Builds hub and agent with version 2.0.11

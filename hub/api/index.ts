@@ -13,6 +13,7 @@ import { SSHManager, setupSSHEndpoints } from './ssh-manager';
 import { setupCorrelationEndpoints } from './correlation-endpoints';
 import { correlationTracker } from './correlation-tracker';
 import { setupChatEndpoints } from './chat-endpoints';
+import { setupMultiAgentEndpoints } from './multi-agent-endpoints';
 import { CommandRequest, CommandRisk, ConfigLoader, LogManager } from '@proxmox-ai-control/shared';
 import fs from 'fs';
 
@@ -114,6 +115,9 @@ setupSSHEndpoints(app, httpAgents, sshManager);
 // Setup chat logging endpoints
 setupChatEndpoints(app);
 
+// Setup multi-agent endpoints
+setupMultiAgentEndpoints(app, httpAgents);
+
 // API Routes
 
 // Get all connected agents
@@ -198,7 +202,7 @@ app.post('/api/command', async (req, res) => {
       try {
         // Generate correlationId for this command
         const correlationId = correlationTracker.generateCorrelationId();
-        correlationTracker.startExecution(correlationId, command, agentName);
+        correlationTracker.startExecution(correlationId, command, agentName, 'command');
         
         // Use chat endpoint for natural language processing
         const result = await httpAgents.sendChatCommand(agentName, command, { correlationId, tabId });
@@ -519,7 +523,7 @@ app.post('/api/agents/:agentName/start', async (req, res) => {
   console.log(`\n[HUB] Start command received for ${agentName} with correlationId: ${correlationId}`);
   
   // Track execution
-  correlationTracker.startExecution(correlationId, 'start-agent', agentName);
+  correlationTracker.startExecution(correlationId, 'start-agent', agentName, 'start-agent');
   httpAgents.setPendingCorrelationId(agentName, correlationId);
   
   try {
@@ -563,7 +567,7 @@ app.post('/api/agents/:agentName/stop', async (req, res) => {
   console.log(`\n[HUB] Stop command received for ${agentName} with correlationId: ${correlationId}`);
   
   // Track execution
-  correlationTracker.startExecution(correlationId, 'stop-agent', agentName);
+  correlationTracker.startExecution(correlationId, 'stop-agent', agentName, 'stop-agent');
   httpAgents.setPendingCorrelationId(agentName, correlationId);
   
   try {

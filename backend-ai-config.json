@@ -1,7 +1,7 @@
 {
   "system": {
     "name": "Backend AI Infrastructure Control",
-    "version": "2.1.87",
+    "version": "2.1.89",
     "description": "Central configuration for Backend AI hub, agents, and managers"
   },
   "anthropic": {
@@ -91,6 +91,10 @@
         "nginx": true,
         "reverseProxy": true,
         "webServer": true
+      },
+      "versions": {
+        "agent": "",
+        "manager": ""
       }
     },
     {
@@ -106,6 +110,10 @@
         "virtualization": true,
         "containers": true,
         "proxmox": true
+      },
+      "versions": {
+        "agent": "",
+        "manager": ""
       }
     },
     {
@@ -121,6 +129,10 @@
         "virtualization": true,
         "containers": true,
         "proxmox": true
+      },
+      "versions": {
+        "agent": "",
+        "manager": ""
       }
     },
     {
@@ -136,6 +148,10 @@
         "virtualization": true,
         "containers": true,
         "proxmox": true
+      },
+      "versions": {
+        "agent": "",
+        "manager": ""
       }
     },
     {
@@ -151,6 +167,10 @@
         "docker": true,
         "storage": true,
         "nas": true
+      },
+      "versions": {
+        "agent": "",
+        "manager": ""
       }
     }
   ]

@@ -78,6 +78,10 @@ export interface BackendAIConfig {
     capabilities: {
       [key: string]: boolean;
     };
+    versions?: {
+      agent: string;
+      manager: string;
+    };
     overrides?: {
       agent?: Partial<BackendAIConfig['defaults']['agent']>;
       manager?: Partial<BackendAIConfig['defaults']['manager']>;

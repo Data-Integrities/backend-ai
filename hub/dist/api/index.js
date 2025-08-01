@@ -50,6 +50,7 @@ const ssh_manager_1 = require("./ssh-manager");
 const correlation_endpoints_1 = require("./correlation-endpoints");
 const correlation_tracker_1 = require("./correlation-tracker");
 const chat_endpoints_1 = require("./chat-endpoints");
+const multi_agent_endpoints_1 = require("./multi-agent-endpoints");
 const shared_1 = require("@proxmox-ai-control/shared");
 const fs_1 = __importDefault(require("fs"));
 // Load environment variables
@@ -130,6 +131,8 @@ app.get('/', async (req, res) => {
 (0, ssh_manager_1.setupSSHEndpoints)(app, httpAgents, sshManager);
 // Setup chat logging endpoints
 (0, chat_endpoints_1.setupChatEndpoints)(app);
+// Setup multi-agent endpoints
+(0, multi_agent_endpoints_1.setupMultiAgentEndpoints)(app, httpAgents);
 // API Routes
 // Get all connected agents
 app.get('/api/agents', async (req, res) => {
@@ -199,7 +202,7 @@ app.post('/api/command', async (req, res) => {
             try {
                 // Generate correlationId for this command
                 const correlationId = correlation_tracker_1.correlationTracker.generateCorrelationId();
-                correlation_tracker_1.correlationTracker.startExecution(correlationId, command, agentName);
+                correlation_tracker_1.correlationTracker.startExecution(correlationId, command, agentName, 'command');
                 // Use chat endpoint for natural language processing
                 const result = await httpAgents.sendChatCommand(agentName, command, { correlationId, tabId });
                 results.push({
@@ -483,7 +486,7 @@ app.post('/api/agents/:agentName/start', async (req, res) => {
     }
     console.log(`\n[HUB] Start command received for ${agentName} with correlationId: ${correlationId}`);
     // Track execution
-    correlation_tracker_1.correlationTracker.startExecution(correlationId, 'start-agent', agentName);
+    correlation_tracker_1.correlationTracker.startExecution(correlationId, 'start-agent', agentName, 'start-agent');
     httpAgents.setPendingCorrelationId(agentName, correlationId);
     try {
         // Call agent manager on port 3081 with correlationId
@@ -522,7 +525,7 @@ app.post('/api/agents/:agentName/stop', async (req, res) => {
     }
     console.log(`\n[HUB] Stop command received for ${agentName} with correlationId: ${correlationId}`);
     // Track execution
-    correlation_tracker_1.correlationTracker.startExecution(correlationId, 'stop-agent', agentName);
+    correlation_tracker_1.correlationTracker.startExecution(correlationId, 'stop-agent', agentName, 'stop-agent');
     httpAgents.setPendingCorrelationId(agentName, correlationId);
     try {
         // Call agent manager on port 3081 with correlationId

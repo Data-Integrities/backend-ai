@@ -4,7 +4,7 @@
 
 **Rule #1**: Always use `deploy-everything.sh` for full system deployments to ensure a repeatable, rock-solid build and deployment process.
 
-**Rule #2**: Use `deploy-version.sh` for quick updates when you only need to update via the hub's auto-update mechanism.
+**Rule #2**: Use `update-versions.sh` for quick updates when you only need to update via the hub's auto-update mechanism.
 
 **Rule #3**: Use SSH for troubleshooting and management tasks. The Claude Code approval system requires individual approval for every API command, making it impractical for investigation and debugging.
 
@@ -22,7 +22,7 @@
 
 ### For QUICK updates (hub auto-update):
 1. Make changes locally
-2. Run `./deploy-version.sh X.X.X` (increments version)
+2. Run `./update-versions.sh X.X.X` (increments version)
 3. This automatically:
    - Updates version in package.json files
    - Builds hub and agent
@@ -58,7 +58,7 @@ ssh root@192.168.1.2 "cd /opt/ai-agent && npm install"
 ## What to do instead:
 ```bash
 # ✅ CORRECT - Use deployment script
-./deploy-version.sh 2.0.11
+./update-versions.sh 2.0.11
 
 # ✅ CORRECT - Use hub API for commands
 curl -X POST http://192.168.1.30/api/command \

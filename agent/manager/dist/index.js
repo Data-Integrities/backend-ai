@@ -244,15 +244,38 @@ app.listen(PORT, '0.0.0.0', async () => {
     console.log('  POST /restart - Restart agent (with optional correlationId)');
     console.log('  GET  /version - Get agent version');
     console.log('  GET  /logs    - Get agent logs');
-    // Check if we were started with a correlationId
-    const correlationId = process.env.CORRELATION_ID;
+    // Check if we were started with a correlationId (from environment or temp file)
+    let correlationId = process.env.CORRELATION_ID;
+    let agentName = process.env.AGENT_NAME || myAgent.name;
+    // If not in environment, check temp files (used by wrapper scripts)
+    if (!correlationId) {
+        try {
+            correlationId = (await promises_1.default.readFile('/tmp/ai-agent-manager.correlationId', 'utf8')).trim();
+            console.log(`Found correlationId in temp file: ${correlationId}`);
+        }
+        catch (error) {
+            // No temp file, that's okay
+        }
+    }
+    // Check for agent name in temp file
+    try {
+        const tempAgentName = (await promises_1.default.readFile('/tmp/ai-agent-manager.agentName', 'utf8')).trim();
+        if (tempAgentName && tempAgentName !== 'unknown') {
+            agentName = tempAgentName;
+            console.log(`Found agentName in temp file: ${agentName}`);
+        }
+    }
+    catch (error) {
+        // No temp file, use default
+    }
     if (correlationId) {
         console.log(`Manager started with correlationId: ${correlationId}`);
         // Send callback to hub that manager has started successfully
         try {
             await axios_1.default.post(`${HUB_URL}/api/executions/${correlationId}/complete`, {
-                result: `Manager started successfully on ${myAgent.name}`,
-                agentId: myAgent.name,
+                result: `Manager started successfully on ${agentName}`,
+                agentId: agentName,
+                agentName: agentName,
                 detectedBy: 'manager-startup'
             }, { timeout: 5000 });
             console.log(`Notified hub of manager startup completion`);

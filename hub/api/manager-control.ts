@@ -14,6 +14,64 @@ interface ManagerCommand {
 }
 
 export function setupManagerControlEndpoints(app: Express, httpAgents: SimpleHttpAgents) {
+  // Listen for timeout events to handle force kill
+  correlationTracker.on('execution-timeout', async (execution: any) => {
+    // Only handle stop operations that timeout
+    if (execution.type === 'stop-manager' && execution.status === 'timeout') {
+      console.log(`[HUB] Stop operation timed out for ${execution.agent}, attempting force kill...`);
+      correlationTracker.addLog(execution.correlationId, '[FORCE-KILL] Stop operation timed out, attempting force termination');
+      
+      const agent = httpAgents.getAgent(execution.agent);
+      const agentConfig = httpAgents.getAgentConfig(execution.agent);
+      
+      if (!agent || !agentConfig) {
+        correlationTracker.addLog(execution.correlationId, '[FORCE-KILL] Error: Agent or config not found');
+        return;
+      }
+      
+      try {
+        // Use kill-service.sh script to force terminate
+        const killCommand = `/opt/ai-agent/scripts/kill-service.sh manager`;
+        const sshCommand = `ssh -o StrictHostKeyChecking=no ${agentConfig.accessUser || 'root'}@${agent.ip} "${killCommand}"`;
+        
+        correlationTracker.addLog(execution.correlationId, `[FORCE-KILL] Executing: ${killCommand}`);
+        
+        const { stdout, stderr } = await execAsync(sshCommand);
+        
+        if (stdout && stdout.trim()) {
+          correlationTracker.addLog(execution.correlationId, `[FORCE-KILL] Output: ${stdout.trim()}`);
+        }
+        
+        if (stderr && stderr.trim()) {
+          correlationTracker.addLog(execution.correlationId, `[FORCE-KILL] Stderr: ${stderr.trim()}`);
+        }
+        
+        // Update execution status to manual termination
+        const updatedExecution = correlationTracker.getExecution(execution.correlationId);
+        if (updatedExecution) {
+          updatedExecution.status = 'manualTermination' as any;
+          updatedExecution.result = { 
+            message: 'Service force terminated after timeout',
+            forceKilled: true 
+          };
+          correlationTracker.addLog(execution.correlationId, '[FORCE-KILL] Service successfully force terminated');
+          correlationTracker.emit('executionUpdate', updatedExecution);
+        }
+        
+      } catch (error: any) {
+        console.error(`[HUB] Force kill failed for ${execution.agent}:`, error.message);
+        correlationTracker.addLog(execution.correlationId, `[FORCE-KILL] Error: ${error.message}`);
+        
+        // Update execution status to failed
+        const updatedExecution = correlationTracker.getExecution(execution.correlationId);
+        if (updatedExecution) {
+          updatedExecution.status = 'failed';
+          updatedExecution.error = `Force kill failed: ${error.message}`;
+          correlationTracker.emit('executionUpdate', updatedExecution);
+        }
+      }
+    }
+  });
   // Control agent managers remotely
   app.post('/api/managers/:agentName/:action', async (req, res) => {
     const { agentName, action } = req.params;
@@ -33,7 +91,7 @@ export function setupManagerControlEndpoints(app: Express, httpAgents: SimpleHtt
     }
     
     // Start tracking this execution
-    correlationTracker.startExecution(correlationId, `${action}-manager`, agentName);
+    correlationTracker.startExecution(correlationId, `${action}-manager`, agentName, `${action}-manager`);
     
     // Set pending correlationId for agent polling
     if (action === 'start' || action === 'restart') {
@@ -61,19 +119,36 @@ export function setupManagerControlEndpoints(app: Express, httpAgents: SimpleHtt
       command = serviceManager.commands[action].replace('{service}', serviceName);
       
       // For special actions that need correlationId support, modify the command
-      if (action === 'start' || action === 'restart') {
-        // Add correlationId as environment variable for the command
-        command = `CORRELATION_ID="${correlationId}" ${command}`;
+      if (action === 'start') {
+        // Use wrapper script for start that can handle correlationId
+        if (serviceManagerType === 'systemd') {
+          command = `AGENT_NAME="${agentName}" /opt/ai-agent/ai-agent-manager-start.sh "${correlationId}"`;
+        } else if (serviceManagerType === 'rc.d') {
+          command = `AGENT_NAME="${agentName}" /opt/ai-agent/rc.d/ai-agent-manager-start.sh "${correlationId}"`;
+        } else {
+          // Fallback - just add correlationId as environment variable
+          command = `CORRELATION_ID="${correlationId}" AGENT_NAME="${agentName}" ${command}`;
+        }
+      } else if (action === 'restart') {
+        // Use wrapper script for restart that handles stop and start with correlationId
+        if (serviceManagerType === 'systemd') {
+          command = `AGENT_NAME="${agentName}" /opt/ai-agent/ai-agent-manager-restart.sh "${correlationId}"`;
+        } else if (serviceManagerType === 'rc.d') {
+          command = `AGENT_NAME="${agentName}" /opt/ai-agent/rc.d/ai-agent-manager-restart.sh "${correlationId}"`;
+        } else {
+          // Fallback - just add correlationId as environment variable
+          command = `CORRELATION_ID="${correlationId}" AGENT_NAME="${agentName}" ${command}`;
+        }
       } else if (action === 'stop') {
         // For stop, use wrapper script that can send callback
         if (serviceManagerType === 'systemd') {
-          command = `/opt/ai-agent/ai-agent-manager-stop.sh "${correlationId}"`;
+          command = `AGENT_NAME="${agentName}" /opt/ai-agent/ai-agent-manager-stop.sh "${correlationId}"`;
         } else if (serviceManagerType === 'rc.d') {
           // For unraid, use rc.d version of the script
-          command = `/opt/ai-agent/rc.d/ai-agent-manager-stop.sh "${correlationId}"`;
+          command = `AGENT_NAME="${agentName}" /opt/ai-agent/rc.d/ai-agent-manager-stop.sh "${correlationId}"`;
         } else {
           // Fallback - just add correlationId as environment variable
-          command = `CORRELATION_ID="${correlationId}" ${command}`;
+          command = `CORRELATION_ID="${correlationId}" AGENT_NAME="${agentName}" ${command}`;
         }
       }
       

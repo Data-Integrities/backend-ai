@@ -74,9 +74,9 @@ Error: Cannot find module 'dotenv'
 
 The provided deployment scripts handle this automatically:
 
-### deploy-version.sh
+### update-versions.sh
 ```bash
-./deploy-version.sh 2.0.20
+./update-versions.sh 2.0.20
 # Builds, packages, and deploys to all workers
 # Automatically runs npm install on each worker
 ```

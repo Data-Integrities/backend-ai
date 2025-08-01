@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SimpleHttpAgents = void 0;
 const axios_1 = __importDefault(require("axios"));
+const fs_1 = require("fs");
 const capability_sync_1 = require("./capability-sync");
 const shared_1 = require("@proxmox-ai-control/shared");
 class SimpleHttpAgents {
@@ -27,7 +28,10 @@ class SimpleHttpAgents {
                     ip: agent.ip,
                     port: config.defaults.agent.port,
                     aliases: agent.aliases,
-                    isOnline: false
+                    isOnline: false,
+                    // Load persisted versions if available
+                    version: agent.versions?.agent || '',
+                    managerVersion: agent.versions?.manager || ''
                 });
             }
             await this.capabilitySync.loadCachedCapabilities();
@@ -53,8 +57,9 @@ class SimpleHttpAgents {
                     // Preserve online status if agent already existed
                     isOnline: existingAgent?.isOnline || false,
                     lastSeen: existingAgent?.lastSeen,
-                    version: existingAgent?.version,
-                    managerVersion: existingAgent?.managerVersion,
+                    // Use persisted versions if available, otherwise use existing polling data
+                    version: existingAgent?.version || agent.versions?.agent || '',
+                    managerVersion: existingAgent?.managerVersion || agent.versions?.manager || '',
                     workingDirectory: existingAgent?.workingDirectory,
                     capabilities: existingAgent?.capabilities,
                     capabilitiesFetched: existingAgent?.capabilitiesFetched,
@@ -83,6 +88,7 @@ class SimpleHttpAgents {
     async pollAgents() {
         // Reload config if it has changed
         await this.reloadConfigIfChanged();
+        let versionChanged = false;
         // Poll all agents
         for (const agent of this.agents.values()) {
             try {
@@ -95,6 +101,12 @@ class SimpleHttpAgents {
                 // Store version and working directory if available
                 if (response.data) {
                     if (response.data.version) {
+                        // Check if agent version changed
+                        const configAgent = this.configLoader.getAgent(agent.name);
+                        if (configAgent && (!configAgent.versions || configAgent.versions.agent !== response.data.version)) {
+                            console.log(`[VERSION] Agent ${agent.name} version changed: ${configAgent.versions?.agent || 'unknown'} -> ${response.data.version}`);
+                            versionChanged = true;
+                        }
                         agent.version = response.data.version;
                     }
                     if (response.data.workingDirectory) {
@@ -171,6 +183,12 @@ class SimpleHttpAgents {
                 });
                 if (managerResponse.data && managerResponse.data.managerVersion) {
                     const previousManagerVersion = agent.managerVersion;
+                    // Check if manager version changed
+                    const configAgent = this.configLoader.getAgent(agent.name);
+                    if (configAgent && (!configAgent.versions || configAgent.versions.manager !== managerResponse.data.managerVersion)) {
+                        console.log(`[VERSION] Manager ${agent.name} version changed: ${configAgent.versions?.manager || 'unknown'} -> ${managerResponse.data.managerVersion}`);
+                        versionChanged = true;
+                    }
                     agent.managerVersion = managerResponse.data.managerVersion;
                     console.log(`[Manager Check] ${agent.name} manager version: ${agent.managerVersion}`);
                     // Check if this is a manager that just came online with a pending start operation
@@ -211,6 +229,42 @@ class SimpleHttpAgents {
                     this.clearPendingCorrelationId(agent.name);
                 }
             }
+        }
+        // If any version changed, update the config file
+        if (versionChanged) {
+            await this.updateConfigVersions();
+        }
+    }
+    async updateConfigVersions() {
+        try {
+            // Read the current config file
+            const configPath = process.env.CONFIG_PATH || '/opt/backend-ai-config.json';
+            const configData = await fs_1.promises.readFile(configPath, 'utf-8');
+            const config = JSON.parse(configData);
+            // Update versions for each agent
+            for (const agent of this.agents.values()) {
+                const configAgent = config.agents.find((a) => a.name === agent.name);
+                if (configAgent) {
+                    if (!configAgent.versions) {
+                        configAgent.versions = { agent: '', manager: '' };
+                    }
+                    // Update versions if they exist
+                    if (agent.version) {
+                        configAgent.versions.agent = agent.version;
+                    }
+                    if (agent.managerVersion !== undefined) {
+                        configAgent.versions.manager = agent.managerVersion || '';
+                    }
+                }
+            }
+            // Write the updated config back
+            await fs_1.promises.writeFile(configPath, JSON.stringify(config, null, 2));
+            console.log('[VERSION] Updated backend-ai-config.json with latest versions');
+            // Reload the config in ConfigLoader to keep it in sync
+            this.configLoader.loadConfig();
+        }
+        catch (error) {
+            console.error('[VERSION] Failed to update config file with versions:', error);
         }
     }
     getAgentsForApi() {
@@ -302,6 +356,7 @@ class SimpleHttpAgents {
             return;
         }
         console.log(`[POLL] Checking status of ${agentName} on demand`);
+        let versionChanged = false;
         try {
             // Check agent status
             const response = await axios_1.default.get(`http://${agent.ip}:${agent.port}/api/status`, {
@@ -311,8 +366,15 @@ class SimpleHttpAgents {
             agent.isOnline = true;
             agent.lastSeen = new Date().toISOString();
             if (response.data) {
+                // Check if agent version changed
+                const configAgent = this.configLoader.getAgent(agent.name);
+                if (response.data.version && configAgent && (!configAgent.versions || configAgent.versions.agent !== response.data.version)) {
+                    console.log(`[VERSION] Agent ${agent.name} version changed: ${configAgent.versions?.agent || 'unknown'} -> ${response.data.version}`);
+                    versionChanged = true;
+                }
                 // Store basic status information
                 agent.agentVersion = response.data.version || '';
+                agent.version = response.data.version || '';
                 agent.systemInfo = response.data.systemInfo || {};
             }
         }
@@ -326,6 +388,12 @@ class SimpleHttpAgents {
                 headers: {}
             });
             if (managerResponse.data && managerResponse.data.managerVersion) {
+                // Check if manager version changed
+                const configAgent = this.configLoader.getAgent(agent.name);
+                if (configAgent && (!configAgent.versions || configAgent.versions.manager !== managerResponse.data.managerVersion)) {
+                    console.log(`[VERSION] Manager ${agent.name} version changed: ${configAgent.versions?.manager || 'unknown'} -> ${managerResponse.data.managerVersion}`);
+                    versionChanged = true;
+                }
                 agent.managerVersion = managerResponse.data.managerVersion;
             }
         }
@@ -333,6 +401,10 @@ class SimpleHttpAgents {
             agent.managerVersion = '';
         }
         console.log(`[POLL] ${agentName} status: Agent=${agent.isOnline ? 'online' : 'offline'}, Manager=${agent.managerVersion ? 'online' : 'offline'}`);
+        // If version changed, update the config file
+        if (versionChanged) {
+            await this.updateConfigVersions();
+        }
     }
     getCapabilitySync() {
         return this.capabilitySync;

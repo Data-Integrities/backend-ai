@@ -849,6 +849,22 @@
             color: #f85149;
         }
         
+        .status-timeout {
+            color: #ff9500; /* orange */
+        }
+        
+        .status-timeout-success {
+            color: #ffcc02; /* yellow */
+        }
+        
+        .status-manual-termination {
+            color: #ff9500; /* orange */
+        }
+        
+        .status-partial-success {
+            color: #ffcc02; /* yellow */
+        }
+        
         /* Status Bar - VSCode Style */
         .status-bar {
             position: fixed;
@@ -1118,6 +1134,53 @@
             color: var(--text-primary);
         }
         
+        /* Compact log viewer styles */
+        .log-viewer-modal .modal-content {
+            position: fixed;
+            top: 10vh;
+            left: 50%;
+            transform: translateX(-50%);
+            margin: 0;
+            height: 80vh;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .log-viewer-modal .modal-header {
+            padding: 8px 15px;
+            flex-shrink: 0;
+        }
+        
+        .log-viewer-modal .modal-header h2 {
+            font-size: 14px;
+        }
+        
+        .log-viewer-modal .modal-body {
+            flex: 1;
+            overflow-y: auto;
+            min-height: 0;
+        }
+        
+        .log-viewer-modal .command-info {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        
+        .log-viewer-modal .command-info-row {
+            display: flex;
+            gap: 15px;
+        }
+        
+        .log-viewer-modal h3 {
+            margin-top: 15px;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+        
         .modal-body {
             padding: 20px;
             color: var(--text-primary);
@@ -1367,12 +1430,12 @@
     
     <script>
         // Single source of truth for version
-        const HUB_VERSION = '2.1.74';
+        const HUB_VERSION = '2.1.89';
         
         // Update page title with version
         document.title = `Infrastructure AI Hub (v${HUB_VERSION})`;
         
-        console.log(`CACHE BUST: Loading v${HUB_VERSION} with start/stop all summary dialogs at`, new Date().toISOString());
+        console.log(`CACHE BUST: Loading v${HUB_VERSION} - Fixed: Console updates only from worker callbacks at`, new Date().toISOString());
         const API_BASE = window.location.origin + '/api';
         let selectedAgents = [];
         let activeTabId = 'new';
@@ -2256,6 +2319,7 @@
                 html += '<div style="margin-bottom: 20px; padding: 10px; background-color: rgba(255,255,255,0.05); border-radius: 5px;">';
                 html += '<strong>Total time until dialog shown:</strong> ' + (totalDuration / 1000).toFixed(2) + ' seconds';
                 html += '</div>';
+            }
             
             // Show successful operations
             if (successful.length > 0) {
@@ -2575,10 +2639,14 @@
         
         // Utility functions
         function formatTime(date = new Date()) {
-            return date.toLocaleTimeString('en-US', { 
-                hour: '2-digit', 
-                minute: '2-digit' 
+            // Custom format to remove leading zero from hour and add seconds
+            const time = date.toLocaleTimeString('en-US', { 
+                hour: 'numeric',  // This removes leading zero
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: true 
             });
+            return time;
         }
         
         // Show error dialog
@@ -2939,9 +3007,34 @@
                     updateCommandStatus(correlationId, { status: 'failed', error: result.error || result.message });
                 }
             } catch (error) {
-                addMessage(activeTabId, `Error: ${error.message}`, false);
-                // Mark command as failed in console
-                updateCommandStatus(correlationId, { status: 'failed', error: error.message });
+                // Check if this is a connection refused error when trying to manage agent with manager down
+                if (error.message.includes('ECONNREFUSED') && 
+                    (operation === 'stop' || operation === 'start' || operation === 'restart')) {
+                    // Show user-friendly dialog for manager down
+                    const dialog = document.createElement('div');
+                    dialog.className = 'dialog-overlay';
+                    dialog.innerHTML = `
+                        <div class="dialog">
+                            <h3>❌ Manager Not Available</h3>
+                            <div class="dialog-content">
+                                <p>Cannot ${operation} the agent on <strong>${agent.name}</strong> because the manager service is not running.</p>
+                                <p>The manager service must be running to control agent lifecycle operations.</p>
+                                <p style="margin-top: 15px;"><strong>Options:</strong></p>
+                                <ul style="text-align: left; margin: 10px 20px;">
+                                    <li>Start the manager service first</li>
+                                    <li>Use SSH to manually control the agent</li>
+                                </ul>
+                            </div>
+                            <button onclick="this.closest('.dialog-overlay').remove()" class="primary-button">OK</button>
+                        </div>
+                    `;
+                    document.body.appendChild(dialog);
+                    updateCommandStatus(correlationId, { status: 'failed', error: 'Manager service not available' });
+                } else {
+                    addMessage(activeTabId, `Error: ${error.message}`, false);
+                    // Mark command as failed in console
+                    updateCommandStatus(correlationId, { status: 'failed', error: error.message });
+                }
             }
         }
         
@@ -3029,6 +3122,50 @@
         // Console command tracking
         let activePollers = new Map(); // Track active polling operations
         let commandTimeouts = new Map(); // Track command timeouts
+        
+        // Helper functions for status display
+        function getStatusColor(status) {
+            switch(status) {
+                case 'success': return '#27ae60';
+                case 'failed': return '#e74c3c';
+                case 'timeout': return '#ff9500';
+                case 'timeoutSuccess': return '#ffcc02';
+                case 'manualTermination': return '#ff9500';
+                case 'partialSuccess': return '#ffcc02';
+                default: return '#888';
+            }
+        }
+        
+        function getStatusSymbol(status) {
+            switch(status) {
+                case 'success': return '✓ Complete';
+                case 'failed': return '✗ Failed';
+                case 'timeout': return '⏱ Timeout';
+                case 'timeoutSuccess': return '⏱ Timeout (Partial)';
+                case 'manualTermination': return '⛔ Terminated';
+                case 'partialSuccess': return '⚠ Partial Success';
+                default: return '? Unknown';
+            }
+        }
+        
+        function getStatusDescription(execution) {
+            switch(execution.status) {
+                case 'success': 
+                    return 'Execution completed successfully';
+                case 'failed': 
+                    return execution.error || 'Execution failed';
+                case 'timeout': 
+                    return 'Command timed out without response';
+                case 'timeoutSuccess': 
+                    return 'Command timed out but partially completed';
+                case 'manualTermination': 
+                    return 'Command was manually terminated';
+                case 'partialSuccess': 
+                    return 'Command partially completed with errors';
+                default: 
+                    return 'Unknown status';
+            }
+        }
         
         // Function to format timing information
         function formatTimingInfo(execution) {
@@ -3165,17 +3302,46 @@
                 }, 500); // Small delay to ensure execution is tracked
                 }
                 
-                // Set client-side timeout (120 seconds for manager operations, 60 for others)
-                const timeoutMs = commandData.command.includes('manager') ? 120000 : 60000;
-                const timeoutId = setTimeout(() => {
+                // Set client-side timeout (30 seconds for all operations per STATUS_CHANGE_RULES)
+                const timeoutMs = 30000;
+                const timeoutId = setTimeout(async () => {
                     console.log(`[TIMEOUT] Command ${correlationId} timed out after ${timeoutMs/1000} seconds`);
                     
                     // Update command status to timeout
                     const commands = getStoredCommands();
                     const timedOutCommand = commands.find(c => c.correlationId === correlationId);
                     if (timedOutCommand) {
-                        timedOutCommand.status = 'timeout';
-                        timedOutCommand.error = 'Command timed out after 60 seconds';
+                        // For stop operations, attempt force kill
+                        if (timedOutCommand.command.includes('stop')) {
+                            console.log(`[TIMEOUT] Attempting force kill for ${timedOutCommand.agent}`);
+                            try {
+                                const serviceType = timedOutCommand.command.includes('manager') ? 'manager' : 'agent';
+                                const killResponse = await fetch(`${API_BASE}/agents/${timedOutCommand.agent}/force-kill`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ type: serviceType })
+                                });
+                                
+                                if (killResponse.ok) {
+                                    timedOutCommand.status = 'manualTermination';
+                                    timedOutCommand.error = 'Service killed via fallback kill script';
+                                    console.log(`[TIMEOUT] Force kill successful for ${timedOutCommand.agent}`);
+                                } else {
+                                    timedOutCommand.status = 'failed';
+                                    timedOutCommand.error = 'Timeout - manual intervention required';
+                                    console.log(`[TIMEOUT] Force kill failed for ${timedOutCommand.agent}`);
+                                }
+                            } catch (error) {
+                                timedOutCommand.status = 'failed';
+                                timedOutCommand.error = 'Timeout - force kill failed';
+                                console.error(`[TIMEOUT] Force kill error for ${timedOutCommand.agent}:`, error);
+                            }
+                        } else {
+                            // For start operations, just mark as timeout
+                            timedOutCommand.status = 'timeout';
+                            timedOutCommand.error = 'Command timed out after 30 seconds';
+                        }
+                        
                         // Already updating in-memory executionHistory
                         renderConsoleTable();
                         console.log(`[TIMEOUT] Updated command status for ${correlationId}`);
@@ -3282,7 +3448,25 @@
                 let statusClass = '';
                 
                 if (cmd.status === 'pending') {
-                    statusDisplay = 'pending';
+                    // Show elapsed time for pending commands
+                    const elapsed = Date.now() - cmd.startTime;
+                    const elapsedSecs = Math.floor(elapsed / 1000);
+                    
+                    // For parent commands, show pending children count
+                    if (!cmd.isChild && cmd.correlationId && (cmd.correlationId.startsWith('start-all_') || 
+                        cmd.correlationId.startsWith('stop-all_') || cmd.correlationId.startsWith('parent_'))) {
+                        // Count pending children
+                        const pendingChildren = commands.filter(c => 
+                            c.isChild && c.parentId === cmd.correlationId && c.status === 'pending'
+                        ).length;
+                        if (pendingChildren > 0) {
+                            statusDisplay = `pending - ${pendingChildren} children waiting (${elapsedSecs}s)`;
+                        } else {
+                            statusDisplay = `pending (${elapsedSecs}s)`;
+                        }
+                    } else {
+                        statusDisplay = `pending (${elapsedSecs}s)`;
+                    }
                     statusClass = 'status-polling';
                 } else if (cmd.status === 'success') {
                     statusDisplay = 'success';
@@ -3293,7 +3477,16 @@
                 } else if (cmd.status === 'timeout') {
                     const timeoutSecs = cmd.command.includes('manager') ? 120 : 60;
                     statusDisplay = `timeout (${timeoutSecs}s)`;
-                    statusClass = 'status-failed';
+                    statusClass = 'status-timeout';
+                } else if (cmd.status === 'timeoutSuccess') {
+                    statusDisplay = 'timeout (partial)';
+                    statusClass = 'status-timeout-success';
+                } else if (cmd.status === 'manualTermination') {
+                    statusDisplay = 'terminated';
+                    statusClass = 'status-manual-termination';
+                } else if (cmd.status === 'partialSuccess') {
+                    statusDisplay = 'partial success';
+                    statusClass = 'status-partial-success';
                 }
                 
                 // Log column - always show View link if correlationId exists
@@ -3464,6 +3657,50 @@
             renderConsoleTable();
         }
         
+        // Function to instantly update agent status in UI without waiting for poll
+        function updateAgentStatusInstantly(agentName, command, status, correlationId) {
+            if (!agentName || agentName === 'all') return; // Skip parent commands
+            
+            // Find the agent element in the DOM
+            const agentsList = document.getElementById('agents-list');
+            if (!agentsList) return;
+            
+            const agentItems = agentsList.querySelectorAll('.agent-item');
+            for (const agentItem of agentItems) {
+                const nameElement = agentItem.querySelector('.agent-name > div');
+                if (nameElement && nameElement.textContent.includes(agentName)) {
+                    const statusContainer = agentItem.querySelector('.agent-status-container');
+                    if (!statusContainer) continue;
+                    
+                    // Determine which indicator to update based on command
+                    const isManagerCommand = command.includes('manager');
+                    const indicatorIndex = isManagerCommand ? 1 : 0; // M is second, A is first
+                    const indicators = statusContainer.querySelectorAll('.status-indicator');
+                    
+                    if (indicators[indicatorIndex]) {
+                        // Get previous status
+                        const previousClasses = indicators[indicatorIndex].className;
+                        const wasOnline = previousClasses.includes('status-online');
+                        const previousStatus = wasOnline ? 'online' : 'offline';
+                        
+                        // For stop commands, success means offline
+                        const newStatus = command.includes('stop') ? 
+                            (status === 'success' || status === 'manualTermination' ? 'offline' : 'online') :
+                            (status === 'success' ? 'online' : 'offline');
+                        
+                        // Update the indicator class
+                        indicators[indicatorIndex].className = `status-indicator status-${newStatus}`;
+                        
+                        // Log the status change
+                        const timestamp = new Date().toISOString();
+                        const indicatorType = isManagerCommand ? 'M' : 'A';
+                        console.log(`[${timestamp}] [STATUS-CHANGE] ${indicatorType} indicator for ${agentName} changed from ${previousStatus} to ${newStatus}${correlationId ? ` (correlationId: ${correlationId})` : ' (from polling)'}`);
+                    }
+                    break;
+                }
+            }
+        }
+        
         // Initialize - moved here after all functions are defined
         loadHistory();
         loadAgents();
@@ -3471,10 +3708,27 @@
         initializeConsole();
         const agentRefreshInterval = setInterval(loadAgents, 5000);
         
+        // Update console table every second to refresh elapsed time for pending commands
+        const consoleRefreshInterval = setInterval(() => {
+            const commands = getStoredCommands();
+            const hasPending = commands.some(c => c.status === 'pending');
+            if (hasPending) {
+                renderConsoleTable();
+            }
+        }, 1000);
+        
+        // Update clock every second
+        const clockInterval = setInterval(() => {
+            document.getElementById('last-update').textContent = formatTime(new Date());
+        }, 1000);
+        // Set initial time immediately
+        document.getElementById('last-update').textContent = formatTime(new Date());
+        
         // Cleanup on page unload
         window.addEventListener('beforeunload', () => {
             // Clean up all intervals and timeouts
             clearInterval(agentRefreshInterval);
+            clearInterval(consoleRefreshInterval);
             activePollers.forEach(pollerId => clearInterval(pollerId));
             commandTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
             cleanupEventSource();
@@ -3566,73 +3820,39 @@
                     return;
                 }
                 
-                // Start all operations in parallel
-                const startPromises = childOperations.map(async (op) => {
-                    const opStartTime = Date.now();
-                    try {
-                        const response = await fetch(`${API_BASE}/agents/${op.agent}/start`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ correlationId: op.correlationId })
-                        });
-                        
-                        if (!response.ok) {
-                            const error = await response.text();
-                            updateCommandStatus(op.correlationId, { status: 'failed', error });
-                            return { agent: op.agent, success: false, error };
-                        }
-                        
-                        const result = await response.json();
-                        const duration = ((Date.now() - opStartTime) / 1000).toFixed(1) + 's';
-                        return { agent: op.agent, success: true, result, duration };
-                    } catch (error) {
-                        updateCommandStatus(op.correlationId, { status: 'failed', error: error.message });
-                        return { agent: op.agent, success: false, error: error.message };
+                // Use new multi-agent endpoint
+                try {
+                    const response = await fetch(`${API_BASE}/agents/multi/start`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            agents: childOperations.map(op => op.agent),
+                            parentCorrelationId 
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        const error = await response.text();
+                        console.error('Multi-agent start failed:', error);
+                        updateCommandStatus(parentCorrelationId, { status: 'failed', error });
+                        return;
                     }
-                });
-                
-                // Wait for all operations to complete
-                const results = await Promise.all(startPromises);
-                const apiTime = Date.now() - startTime;
-                
-                // Update parent command with results
-                const commands = getStoredCommands();
-                const command = commands.find(c => c.id === commandId);
-                if (command) {
-                    command.apiTime = `${apiTime}ms`;
-                    renderConsoleTable();
+                    
+                    const result = await response.json();
+                    console.log('Multi-agent start initiated:', result);
+                    
+                    // The parent will be automatically updated when all children complete
+                    // Listen for parent execution updates
+                    listenForExecutionUpdates(parentCorrelationId);
+                } catch (error) {
+                    console.error('Multi-agent start error:', error);
+                    updateCommandStatus(parentCorrelationId, { status: 'failed', error: error.message });
+                    showSummaryModal('Start All Agents - Failed', [{
+                        agent: 'multi-agent',
+                        status: 'failed',
+                        message: error.message
+                    }]);
                 }
-                
-                // Process results and add to allResults
-                results.forEach(r => {
-                    if (r.success) {
-                        allResults.push({
-                            agent: r.agent,
-                            status: 'success',
-                            message: 'Agent started',
-                            duration: r.duration
-                        });
-                    } else {
-                        allResults.push({
-                            agent: r.agent,
-                            status: 'failed',
-                            message: r.error || 'Failed to start agent'
-                        });
-                    }
-                });
-                
-                const successful = results.filter(r => r.success).length;
-                const failed = results.filter(r => !r.success).length;
-                
-                // Update parent status
-                if (failed === 0) {
-                    updateCommandStatus(parentCorrelationId, { status: 'completed', result: `${successful} agents started` });
-                } else {
-                    updateCommandStatus(parentCorrelationId, { status: 'failed', error: `${failed} operations failed` });
-                }
-                
-                // Show summary dialog
-                showSummaryModal('Start All Agents - Complete', allResults);
                 
             } catch (error) {
                 updateCommandStatus(parentCorrelationId, { status: 'failed', error: error.message });
@@ -3716,73 +3936,39 @@
                     return;
                 }
                 
-                // Stop all operations in parallel
-                const stopPromises = childOperations.map(async (op) => {
-                    const opStartTime = Date.now();
-                    try {
-                        const response = await fetch(`${API_BASE}/agents/${op.agent}/stop`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ correlationId: op.correlationId })
-                        });
-                        
-                        if (!response.ok) {
-                            const error = await response.text();
-                            updateCommandStatus(op.correlationId, { status: 'failed', error });
-                            return { agent: op.agent, success: false, error };
-                        }
-                        
-                        const result = await response.json();
-                        const duration = ((Date.now() - opStartTime) / 1000).toFixed(1) + 's';
-                        return { agent: op.agent, success: true, result, duration };
-                    } catch (error) {
-                        updateCommandStatus(op.correlationId, { status: 'failed', error: error.message });
-                        return { agent: op.agent, success: false, error: error.message };
+                // Use new multi-agent endpoint
+                try {
+                    const response = await fetch(`${API_BASE}/agents/multi/stop`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            agents: childOperations.map(op => op.agent),
+                            parentCorrelationId 
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        const error = await response.text();
+                        console.error('Multi-agent stop failed:', error);
+                        updateCommandStatus(parentCorrelationId, { status: 'failed', error });
+                        return;
                     }
-                });
-                
-                // Wait for all operations to complete
-                const results = await Promise.all(stopPromises);
-                const apiTime = Date.now() - startTime;
-                
-                // Update parent command with results
-                const commands = getStoredCommands();
-                const command = commands.find(c => c.id === commandId);
-                if (command) {
-                    command.apiTime = `${apiTime}ms`;
-                    renderConsoleTable();
+                    
+                    const result = await response.json();
+                    console.log('Multi-agent stop initiated:', result);
+                    
+                    // The parent will be automatically updated when all children complete
+                    // Listen for parent execution updates
+                    listenForExecutionUpdates(parentCorrelationId);
+                } catch (error) {
+                    console.error('Multi-agent stop error:', error);
+                    updateCommandStatus(parentCorrelationId, { status: 'failed', error: error.message });
+                    showSummaryModal('Stop All Agents - Failed', [{
+                        agent: 'multi-agent',
+                        status: 'failed',
+                        message: error.message
+                    }]);
                 }
-                
-                // Process results and add to allResults
-                results.forEach(r => {
-                    if (r.success) {
-                        allResults.push({
-                            agent: r.agent,
-                            status: 'success',
-                            message: 'Agent stopped',
-                            duration: r.duration
-                        });
-                    } else {
-                        allResults.push({
-                            agent: r.agent,
-                            status: 'failed',
-                            message: r.error || 'Failed to stop agent'
-                        });
-                    }
-                });
-                
-                const successful = results.filter(r => r.success).length;
-                const failed = results.filter(r => !r.success).length;
-                
-                // Update parent status
-                if (failed === 0) {
-                    updateCommandStatus(parentCorrelationId, { status: 'completed', result: `${successful} agents stopped` });
-                } else {
-                    updateCommandStatus(parentCorrelationId, { status: 'failed', error: `${failed} operations failed` });
-                }
-                
-                // Show summary dialog
-                showSummaryModal('Stop All Agents - Complete', allResults);
                 
             } catch (error) {
                 updateCommandStatus(parentCorrelationId, { status: 'failed', error: error.message });
@@ -3793,7 +3979,8 @@
         }
         
         async function startAllManagers() {
-            console.log('Starting all managers...');
+            const operationStartTime = Date.now();
+            console.log(`[${new Date().toISOString()}] Starting startAllManagers operation`);
             const agents = await getAgents();
             
             if (agents.agents.length === 0) {
@@ -3836,17 +4023,28 @@
                     status: 'completed', 
                     result: 'All managers already running' 
                 });
-                showSummaryModal('Start All Managers - Complete', allResults);
+                const totalDuration = Date.now() - operationStartTime;
+                showSummaryModal('Start All Managers - Complete', allResults, totalDuration);
                 return;
             }
             
             try {
+                // Track pending operations for callback duration calculation
+                const pendingOperations = new Map();
+                
                 // Start managers on all agents that need it
                 const startPromises = agentsNeedingManagerStart.map(async (agent) => {
-                    const startTime = Date.now();
+                    const dispatchTime = Date.now();
                     const correlationId = 'cmd_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                    
+                    // Store dispatch time for callback duration calculation
+                    pendingOperations.set(correlationId, {
+                        agent: agent.name,
+                        dispatchTime: dispatchTime
+                    });
+                    
                     try {
-                        console.log(`Starting manager on ${agent.name}...`);
+                        console.log(`[${new Date().toISOString()}] Sending start-manager command to ${agent.name} (correlationId: ${correlationId})`);
                         
                         // Add child command to console
                         addConsoleCommand(agent.name, 'start-manager', 'pending', correlationId, true, parentCorrelationId);
@@ -3868,35 +4066,18 @@
                         }
                         
                         const result = await response.json();
-                        const endTime = Date.now();
-                        const duration = endTime - startTime;
                         
-                        if (result.success) {
-                            allResults.push({
-                                agent: agent.name,
-                                status: 'success',
-                                message: 'Manager started successfully',
-                                time: duration
-                            });
-                            return { agent: agent.name, success: true, duration, correlationId };
-                        } else {
-                            allResults.push({
-                                agent: agent.name,
-                                status: 'failed',
-                                error: result.error || 'Unknown error',
-                                time: duration
-                            });
-                            return { agent: agent.name, success: false, error: result.error, correlationId };
-                        }
+                        console.log(`[${new Date().toISOString()}] Manager start command sent to ${agent.name} (correlationId: ${correlationId})`);
+                        
+                        // Don't add to allResults here - wait for callback
+                        // The status will be updated via correlation tracker
+                        return { agent: agent.name, correlationId, dispatched: true };
                     } catch (error) {
-                        const endTime = Date.now();
-                        const duration = endTime - startTime;
-                        allResults.push({
-                            agent: agent.name,
-                            status: 'failed',
-                            error: error.message,
-                            time: duration
-                        });
+                        console.error(`Error starting manager for ${agent.name}:`, error);
+                        
+                        // Update command status directly for immediate failures
+                        updateCommandStatus(correlationId, { status: 'failed', error: error.message });
+                        
                         return { agent: agent.name, success: false, error: error.message, correlationId };
                     }
                 });
@@ -3915,28 +4096,65 @@
                     await waitForOperationsToComplete(childCorrelationIds);
                 }
                 
+                // Build final results from completed commands
+                const commands = getStoredCommands();
+                const finalResults = [];
+                
+                // Add results from child commands that completed
+                for (const childId of childCorrelationIds) {
+                    const command = commands.find(c => c.correlationId === childId);
+                    if (command) {
+                        const callbackDuration = command.callbackTime ? 
+                            command.callbackTime - command.timestamp : null;
+                        
+                        finalResults.push({
+                            agent: command.agent,
+                            status: command.status === 'completed' ? 'success' : 
+                                   command.status === 'timeout' ? 'timeout' : 'failed',
+                            message: command.status === 'completed' ? 'Manager started' : 
+                                    command.status === 'timeout' ? 'Operation timed out' :
+                                    (command.error || 'Failed to start manager'),
+                            callbackDuration: callbackDuration
+                        });
+                    }
+                }
+                
+                // Add already running managers
+                allResults.forEach(result => {
+                    if (result.status === 'already') {
+                        finalResults.push(result);
+                    }
+                });
+                
                 // Update parent command status AFTER children complete
-                const successful = results.filter(r => r.success).length;
-                const failed = results.filter(r => !r.success).length;
+                const successful = finalResults.filter(r => r.status === 'success').length;
+                const failed = finalResults.filter(r => r.status === 'failed' || r.status === 'timeout').length;
                 
                 // Update parent status
-                if (failed === 0) {
+                if (failed === 0 && successful > 0) {
                     updateCommandStatus(parentCorrelationId, { status: 'completed', result: `${successful} managers started` });
+                } else if (successful === 0) {
+                    updateCommandStatus(parentCorrelationId, { status: 'failed', error: `All operations failed` });
                 } else {
-                    updateCommandStatus(parentCorrelationId, { status: 'failed', error: `${failed} operations failed` });
+                    updateCommandStatus(parentCorrelationId, { status: 'partialSuccess', result: `${successful} of ${finalResults.length} managers started` });
                 }
                 
                 // Refresh agent status to get updated manager versions
                 await loadAgents();
                 
-                // Show summary dialog
-                showSummaryModal('Start All Managers - Complete', allResults);
+                // Calculate total duration from operation start to dialog display
+                const totalDuration = Date.now() - operationStartTime;
+                console.log(`[${new Date().toISOString()}] Operation completed in ${totalDuration}ms`);
+                
+                // Show summary dialog with timing
+                showSummaryModal('Start All Managers - Complete', finalResults, totalDuration);
                 
             } catch (error) {
                 updateCommandStatus(parentCorrelationId, { status: 'failed', error: error.message });
                 addMessage(activeTabId, `Error starting managers: ${error.message}`, false);
                 // Show error dialog immediately on failure
-                showSummaryModal('Start All Managers - Failed', allResults);
+                const totalDuration = Date.now() - operationStartTime;
+                showSummaryModal('Start All Managers - Failed', allResults, totalDuration);
             }
         }
         
@@ -3985,17 +4203,28 @@
                     status: 'completed', 
                     result: 'All managers already stopped' 
                 });
-                showSummaryModal('Stop All Managers - Complete', allResults);
+                const totalDuration = Date.now() - operationStartTime;
+                showSummaryModal('Stop All Managers - Complete', allResults, totalDuration);
                 return;
             }
             
             try {
+                // Track pending operations for callback duration calculation
+                const pendingOperations = new Map();
+                
                 // Stop managers on all agents that need it
                 const stopPromises = agentsNeedingManagerStop.map(async (agent) => {
-                    const startTime = Date.now();
+                    const dispatchTime = Date.now();
                     const correlationId = 'cmd_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                    
+                    // Store dispatch time for callback duration calculation
+                    pendingOperations.set(correlationId, {
+                        agent: agent.name,
+                        dispatchTime: dispatchTime
+                    });
+                    
                     try {
-                        console.log(`Stopping manager on ${agent.name}...`);
+                        console.log(`[${new Date().toISOString()}] Sending stop-manager command to ${agent.name} (correlationId: ${correlationId})`);
                         
                         // Add child command to console
                         addConsoleCommand(agent.name, 'stop-manager', 'pending', correlationId, true, parentCorrelationId);
@@ -4017,35 +4246,18 @@
                         }
                         
                         const result = await response.json();
-                        const endTime = Date.now();
-                        const duration = endTime - startTime;
                         
-                        if (result.success) {
-                            allResults.push({
-                                agent: agent.name,
-                                status: 'success',
-                                message: 'Manager stopped successfully',
-                                time: duration
-                            });
-                            return { agent: agent.name, success: true, duration, correlationId };
-                        } else {
-                            allResults.push({
-                                agent: agent.name,
-                                status: 'failed',
-                                error: result.error || 'Unknown error',
-                                time: duration
-                            });
-                            return { agent: agent.name, success: false, error: result.error, correlationId };
-                        }
+                        console.log(`[${new Date().toISOString()}] Manager stop command sent to ${agent.name} (correlationId: ${correlationId})`);
+                        
+                        // Don't add to allResults here - wait for callback
+                        // The status will be updated via correlation tracker
+                        return { agent: agent.name, correlationId, dispatched: true };
                     } catch (error) {
-                        const endTime = Date.now();
-                        const duration = endTime - startTime;
-                        allResults.push({
-                            agent: agent.name,
-                            status: 'failed',
-                            error: error.message,
-                            time: duration
-                        });
+                        console.error(`Error starting manager for ${agent.name}:`, error);
+                        
+                        // Update command status directly for immediate failures
+                        updateCommandStatus(correlationId, { status: 'failed', error: error.message });
+                        
                         return { agent: agent.name, success: false, error: error.message, correlationId };
                     }
                 });
@@ -4064,28 +4276,69 @@
                     await waitForOperationsToComplete(childCorrelationIds);
                 }
                 
+                // Build final results from completed commands
+                const commands = getStoredCommands();
+                const finalResults = [];
+                
+                // Add results from child commands that completed
+                for (const childId of childCorrelationIds) {
+                    const command = commands.find(c => c.correlationId === childId);
+                    if (command) {
+                        const callbackDuration = command.callbackTime ? 
+                            command.callbackTime - command.timestamp : null;
+                        
+                        finalResults.push({
+                            agent: command.agent,
+                            status: command.status === 'completed' ? 'success' : 
+                                   command.status === 'manualTermination' ? 'manualTermination' :
+                                   command.status === 'timeout' ? 'timeout' : 'failed',
+                            message: command.status === 'completed' ? 'Manager stopped' : 
+                                    command.status === 'manualTermination' ? 'Force killed' :
+                                    command.status === 'timeout' ? 'Operation timed out' :
+                                    (command.error || 'Failed to stop manager'),
+                            callbackDuration: callbackDuration
+                        });
+                    }
+                }
+                
+                // Add already stopped managers
+                allResults.forEach(result => {
+                    if (result.status === 'already') {
+                        finalResults.push(result);
+                    }
+                });
+                
                 // Update parent command status AFTER children complete
-                const successful = results.filter(r => r.success).length;
-                const failed = results.filter(r => !r.success).length;
+                const successful = finalResults.filter(r => r.status === 'success').length;
+                const manuallyTerminated = finalResults.filter(r => r.status === 'manualTermination').length;
+                const failed = finalResults.filter(r => r.status === 'failed' || r.status === 'timeout').length;
                 
                 // Update parent status
-                if (failed === 0) {
+                if (failed === 0 && manuallyTerminated === 0 && successful > 0) {
                     updateCommandStatus(parentCorrelationId, { status: 'completed', result: `${successful} managers stopped` });
+                } else if (successful === 0 && manuallyTerminated === 0) {
+                    updateCommandStatus(parentCorrelationId, { status: 'failed', error: `All operations failed` });
                 } else {
-                    updateCommandStatus(parentCorrelationId, { status: 'failed', error: `${failed} operations failed` });
+                    const total = successful + manuallyTerminated;
+                    updateCommandStatus(parentCorrelationId, { status: 'partialSuccess', result: `${total} of ${finalResults.length} managers stopped` });
                 }
                 
                 // Refresh agent status to get updated manager versions
                 await loadAgents();
                 
-                // Show summary dialog
-                showSummaryModal('Stop All Managers - Complete', allResults);
+                // Calculate total duration from operation start to dialog display
+                const totalDuration = Date.now() - operationStartTime;
+                console.log(`[${new Date().toISOString()}] Operation completed in ${totalDuration}ms`);
+                
+                // Show summary dialog with timing
+                showSummaryModal('Stop All Managers - Complete', finalResults, totalDuration);
                 
             } catch (error) {
                 updateCommandStatus(parentCorrelationId, { status: 'failed', error: error.message });
                 addMessage(activeTabId, `Error stopping managers: ${error.message}`, false);
                 // Show error dialog immediately on failure
-                showSummaryModal('Stop All Managers - Failed', allResults);
+                const totalDuration = Date.now() - operationStartTime;
+                showSummaryModal('Stop All Managers - Failed', allResults, totalDuration);
             }
         }
         
@@ -4127,20 +4380,25 @@
                 
                 // Create modal to show logs
                 const modal = document.createElement('div');
-                modal.className = 'modal';
+                modal.className = 'modal log-viewer-modal';
                 modal.innerHTML = `
                     <div class="modal-content" style="max-width: 90%; max-height: 80vh;">
                         <div class="modal-header">
                             <h2>Logs for ${correlationId}</h2>
                             <span class="close-button" onclick="this.closest('.modal').remove()">&times;</span>
                         </div>
-                        <div class="modal-body" style="overflow-y: auto; max-height: 60vh;">
-                            <h3>Command: ${execution.command}</h3>
-                            <p><strong>Agent:</strong> ${execution.agent}</p>
-                            <p><strong>Status:</strong> ${execution.status}</p>
-                            <p><strong>Started:</strong> ${new Date(execution.startTime).toLocaleString()}</p>
-                            ${execution.endTime ? `<p><strong>Completed:</strong> ${new Date(execution.endTime).toLocaleString()}</p>` : ''}
-                            ${execution.callbackTime ? `<p><strong>Callback:</strong> ${new Date(execution.callbackTime).toLocaleString()}</p>` : ''}
+                        <div class="modal-body">
+                            <h3 style="margin-top: 0;">Command: ${execution.command}</h3>
+                            <div class="command-info">
+                                <div class="command-info-row">
+                                    <span><strong>Agent:</strong> ${execution.agent}</span>
+                                    <span><strong>Status:</strong> ${execution.status}</span>
+                                </div>
+                                <div class="command-info-row">
+                                    <span><strong>Started:</strong> ${new Date(execution.startTime).toLocaleTimeString()}</span>
+                                    ${execution.endTime ? `<span><strong>Completed:</strong> ${new Date(execution.endTime).toLocaleTimeString()}</span>` : ''}
+                                </div>
+                            </div>
                             
                             <h3>Execution Timeline:</h3>
                             ${renderExecutionTimeline(execution)}
@@ -4357,11 +4615,11 @@
                         <td style="padding: 6px 4px; color: #ccc; font-family: monospace;">${formatTime(new Date(execution.endTime))}</td>
                         <td style="padding: 6px 4px; color: #666; font-family: monospace;">+${formatElapsed(endElapsed)}</td>
                         <td style="padding: 6px 4px;">
-                            <span style="color: ${execution.status === 'success' ? '#27ae60' : '#e74c3c'};">
-                                ${execution.status === 'success' ? '✓ Complete' : '✗ Failed'}
+                            <span style="color: ${getStatusColor(execution.status)};">
+                                ${getStatusSymbol(execution.status)}
                             </span>
                         </td>
-                        <td style="padding: 6px 4px; color: #999;">${execution.status === 'success' ? 'Execution completed successfully' : execution.error || 'Execution failed'}</td>
+                        <td style="padding: 6px 4px; color: #999;">${getStatusDescription(execution)}</td>
                     </tr>
                 `;
             }
@@ -4520,8 +4778,17 @@
                         const command = commands.find(c => c.correlationId === execution.correlationId);
                         if (command) {
                             console.log(`[EventSource] Updating command ${execution.correlationId} with timing info`);
+                            
+                            // Handle late callbacks for start operations that previously timed out
+                            if (command.status === 'timeout' && execution.status === 'success' && command.command.includes('start')) {
+                                console.log(`[EventSource] Late callback received for ${execution.correlationId} - updating to timeoutSuccess`);
+                                command.status = 'timeoutSuccess';
+                                execution.status = 'timeoutSuccess'; // Update execution status too
+                            } else {
+                                command.status = execution.status || 'pending';
+                            }
+                            
                             command.timingInfo = formatTimingInfo(execution);
-                            command.status = execution.status || 'pending';
                             
                             // Update the specific time fields
                             if (execution.callbackTime) {
@@ -4624,6 +4891,12 @@
             if (command) {
                 command.status = execution.status;
                 
+                // Log callback receipt if this is a completion status
+                if (execution.status !== 'pending' && command.startTime) {
+                    const callbackDuration = (Date.now() - command.startTime) / 1000;
+                    console.log(`[${new Date().toISOString()}] Callback received for ${command.agent} (${callbackDuration.toFixed(2)}s)`);
+                }
+                
                 // Update the specific time fields
                 if (execution.callbackTime) {
                     command.callbackTime = execution.callbackTime;
@@ -4641,6 +4914,14 @@
                 
                 // Update timing information with our three timestamps
                 command.timingInfo = formatTimingInfo(execution);
+                
+                // Instant status update: Update A/M icons when callback is received
+                if (execution.status === 'success' || execution.status === 'failed' || 
+                    execution.status === 'timeout' || execution.status === 'manualTermination') {
+                    // Get the command string from the stored command object
+                    const commandString = command.command || execution.command || '';
+                    updateAgentStatusInstantly(command.agent, commandString, execution.status);
+                }
                 
                 // Already updating in-memory executionHistory
                 renderConsoleTable();

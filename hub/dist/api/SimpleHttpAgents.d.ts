@@ -27,6 +27,7 @@ export declare class SimpleHttpAgents {
     private reloadConfigIfChanged;
     private startPolling;
     private pollAgents;
+    private updateConfigVersions;
     getAgentsForApi(): any;
     reloadConfig(): Promise<void>;
     sendCommand(agentName: string, command: string, options?: {

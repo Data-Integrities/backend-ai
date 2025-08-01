@@ -108,16 +108,19 @@ echo "Starting deployment..."
 # Start deployment timer
 DEPLOY_START=$(date +%s)
 
-# Create deployment logs directory
-DEPLOY_LOGS_DIR=$(mktemp -d -t deploy_logs_XXXXXX)
+# Create deployment logs directory (absolute path)
+DEPLOY_LOGS_DIR="$PWD/logs/deployment"
+
+# Clean and recreate deployment logs directory
+if [ -d "$DEPLOY_LOGS_DIR" ]; then
+    print_info "Cleaning previous deployment logs..."
+    rm -rf "$DEPLOY_LOGS_DIR"/*
+fi
+
+# Always ensure the directory structure exists
+mkdir -p "$DEPLOY_LOGS_DIR/build"
 
 print_section "Pre-deployment Checks"
-
-# Clean up previous deployment logs
-if [ -d "/tmp/deploy_logs_"* ]; then
-    print_info "Cleaning up previous deployment logs..."
-    rm -rf /tmp/deploy_logs_*
-fi
 
 # Check if backend-ai-config.json exists
 if [ ! -f "./backend-ai-config.json" ]; then
@@ -131,51 +134,55 @@ print_status "Configuration file found"
 print_info "Updating version to $VERSION..."
 ./set-version.sh $VERSION >/dev/null 2>&1
 
-print_section "Phase 1: Building Everything"
+print_section "Phase 1: Building Shared Module"
 
 print_info "Cleaning old builds..."
 rm -rf agent/dist agent/manager/dist shared/dist hub/dist
 
-print_info "Building shared module..."
+# Create build logs directory (after cleaning, this needs to be recreated)
+BUILD_LOGS_DIR="$DEPLOY_LOGS_DIR/build"
+mkdir -p "$BUILD_LOGS_DIR"
+
+print_info "Building shared module (required by all components)..."
 cd shared
-if ! npm run build >/dev/null 2>&1; then
-    print_error "Shared module build failed!"
+if ! npm run build > "$BUILD_LOGS_DIR/shared.log" 2>&1; then
+    print_error "Shared module build failed! See $BUILD_LOGS_DIR/shared.log"
+    tail -20 "$BUILD_LOGS_DIR/shared.log"
     exit 1
 fi
 cd ..
-print_status "Shared module built"
+print_status "Shared module built successfully"
 
-print_info "Building hub..."
-cd hub
-npm install >/dev/null 2>&1
-if ! npm run build >/dev/null 2>&1; then
-    print_error "Hub build failed!"
-    exit 1
-fi
-cd ..
-print_status "Hub built"
+print_section "Phase 2: Parallel Build & Deploy"
 
-print_info "Building agent..."
-cd agent
-npm install >/dev/null 2>&1
-if ! npm run build >/dev/null 2>&1; then
-    print_error "Agent build failed!"
-    exit 1
-fi
-cd ..
-print_status "Agent built"
+print_info "Starting parallel build and deployment..."
+print_info "→ Hub thread: Build → Deploy to 192.168.1.30"
+print_info "→ Worker thread: Build agent/manager → Deploy to 5 workers"
+echo ""
 
-print_info "Building manager..."
-cd agent/manager
-npm install >/dev/null 2>&1
-if ! npm run build >/dev/null 2>&1; then
-    print_error "Manager build failed!"
-    exit 1
-fi
-cd ../..
-print_status "Manager built"
+# Track thread status
+HUB_THREAD_STATUS="pending"
+WORKER_THREAD_STATUS="pending"
 
-print_section "Phase 2: Deploying Hub"
+# Function to build and deploy hub
+build_and_deploy_hub() {
+    {
+        echo "[HUB-THREAD] Starting at $(date)"
+        echo "[HUB-THREAD] Building hub..."
+        
+        cd hub
+        npm install > "$BUILD_LOGS_DIR/hub-npm-install.log" 2>&1
+        if ! npm run build > "$BUILD_LOGS_DIR/hub-build.log" 2>&1; then
+            echo "[HUB-THREAD] ERROR: Hub build failed!"
+            echo "[HUB-THREAD] Last 20 lines of build log:"
+            tail -20 "$BUILD_LOGS_DIR/hub-build.log"
+            return 1
+        fi
+        cd ..
+        echo "[HUB-THREAD] Hub built successfully"
+        
+        # Original hub deployment code starts here
+        echo "[HUB-THREAD] Creating hub deployment package..."
 
 print_info "Creating hub deployment package..."
 
@@ -312,17 +319,61 @@ touch "$DEPLOY_LOGS_DIR/hub.success"
 
 # Cleanup
 rm -f hub-deployment-package.tar.gz
+        
+        echo "[HUB-THREAD] Hub deployment completed successfully!"
+        echo "[HUB-THREAD] Finished at $(date)"
+        return 0
+    } 2>&1 | tee "$DEPLOY_LOGS_DIR/hub-thread.log"
+}
 
-print_section "Phase 3: Deploying Workers"
+# Function to build and deploy workers
+build_and_deploy_workers() {
+    {
+        echo "[WORKER-THREAD] Starting at $(date)"
+        echo "[WORKER-THREAD] Building agent..."
+        
+        cd agent
+        npm install > "$BUILD_LOGS_DIR/agent-npm-install.log" 2>&1
+        if ! npm run build > "$BUILD_LOGS_DIR/agent-build.log" 2>&1; then
+            echo "[WORKER-THREAD] ERROR: Agent build failed!"
+            echo "[WORKER-THREAD] Last 20 lines of build log:"
+            tail -20 "$BUILD_LOGS_DIR/agent-build.log"
+            return 1
+        fi
+        cd ..
+        echo "[WORKER-THREAD] Agent built successfully"
+        
+        echo "[WORKER-THREAD] Building manager..."
+        cd agent/manager
+        npm install > "$BUILD_LOGS_DIR/manager-npm-install.log" 2>&1
+        if ! npm run build > "$BUILD_LOGS_DIR/manager-build.log" 2>&1; then
+            echo "[WORKER-THREAD] ERROR: Manager build failed!"
+            echo "[WORKER-THREAD] Last 20 lines of build log:"
+            tail -20 "$BUILD_LOGS_DIR/manager-build.log"
+            return 2
+        fi
+        cd ../..
+        echo "[WORKER-THREAD] Manager built successfully"
+        
+        # Original worker deployment code starts here
+        echo "[WORKER-THREAD] Creating worker deployment package..."
 
 # Configuration
 WORKERS=("192.168.1.2" "192.168.1.5" "192.168.1.6" "192.168.1.7" "192.168.1.10")
 WORKER_NAMES=("nginx" "pve1" "pve2" "pve3" "unraid")
 
+# Read node paths from configuration for each worker
+WORKER_NODE_PATHS=()
+for name in "${WORKER_NAMES[@]}"; do
+    NODE_PATH=$(jq -r ".agents[] | select(.name == \"$name\") | .nodePath" backend-ai-config.json)
+    WORKER_NODE_PATHS+=("$NODE_PATH")
+done
+
 # Function to deploy to a single worker
 deploy_to_worker() {
     local WORKER_IP=$1
     local WORKER_NAME=$2
+    local NODE_PATH=$3
     
     echo ""
     echo "════════════════════════════════════════"
@@ -378,6 +429,7 @@ deploy_to_worker() {
 set -e
 cd /opt
 WORKER_NAME="$WORKER_NAME"
+NODE_PATH="$NODE_PATH"
 
 # Remove old installation
 rm -rf /opt/ai-agent/web-agent* /opt/ai-agent/manager.js 2>/dev/null || true
@@ -385,6 +437,21 @@ rm -rf /opt/ai-agent/web-agent* /opt/ai-agent/manager.js 2>/dev/null || true
 # Extract new files
 echo "Extracting deployment package..."
 tar -xzf /tmp/deployment-package.tar.gz
+
+# Self-heal: Fix ownership to ensure everything is owned by root:root
+echo "Fixing file ownership..."
+chown -R root:root /opt/ai-agent
+
+# Check if Node.js is available for rc.d systems
+if [ -f /etc/rc.d/rc.ai-agent ]; then
+    if [ ! -x "$NODE_PATH" ]; then
+        echo "WARNING: Node.js not found at $NODE_PATH"
+        echo "The AI Agent services will not be able to start"
+        echo "For Unraid systems, ensure /boot/config/go installs Node.js on boot"
+    else
+        echo "Node.js found at $NODE_PATH"
+    fi
+fi
 
 # Copy config to standard location
 if [ -f backend-ai-config.json ] && [ ! -f /opt/backend-ai-config.json ]; then
@@ -404,8 +471,12 @@ if [ -d /etc/systemd/system ]; then
         # Copy wrapper scripts
         cp -f systemd/ai-agent-start.sh /opt/ai-agent/
         cp -f systemd/ai-agent-manager-stop.sh /opt/ai-agent/
+        cp -f systemd/ai-agent-manager-start.sh /opt/ai-agent/
+        cp -f systemd/ai-agent-manager-restart.sh /opt/ai-agent/
         chmod +x /opt/ai-agent/ai-agent-start.sh
         chmod +x /opt/ai-agent/ai-agent-manager-stop.sh
+        chmod +x /opt/ai-agent/ai-agent-manager-start.sh
+        chmod +x /opt/ai-agent/ai-agent-manager-restart.sh
         # Set AGENT_NAME in service files
         sed -i "s/AGENT_NAME_PLACEHOLDER/\$WORKER_NAME/g" /etc/systemd/system/ai-agent.service
         sed -i "s/AGENT_NAME_PLACEHOLDER/\$WORKER_NAME/g" /etc/systemd/system/ai-agent-manager.service
@@ -422,8 +493,12 @@ elif [ -d /etc/rc.d ]; then
         mkdir -p /opt/ai-agent/rc.d
         cp -f rc.d/ai-agent-start.sh /opt/ai-agent/rc.d/
         cp -f rc.d/ai-agent-manager-stop.sh /opt/ai-agent/rc.d/
+        cp -f rc.d/ai-agent-manager-start.sh /opt/ai-agent/rc.d/
+        cp -f rc.d/ai-agent-manager-restart.sh /opt/ai-agent/rc.d/
         chmod +x /opt/ai-agent/rc.d/ai-agent-start.sh
         chmod +x /opt/ai-agent/rc.d/ai-agent-manager-stop.sh
+        chmod +x /opt/ai-agent/rc.d/ai-agent-manager-start.sh
+        chmod +x /opt/ai-agent/rc.d/ai-agent-manager-restart.sh
         # Set AGENT_NAME in service files
         sed -i "s/AGENT_NAME_PLACEHOLDER/\$WORKER_NAME/g" /etc/rc.d/rc.ai-agent
         sed -i "s/AGENT_NAME_PLACEHOLDER/\$WORKER_NAME/g" /etc/rc.d/rc.ai-agent-manager
@@ -549,6 +624,13 @@ if [ -d "agent/templates/rc.d" ]; then
     cp agent/templates/rc.d/* $TEMP_DIR/rc.d/
 fi
 
+# Copy scripts directory
+if [ -d "agent/scripts" ]; then
+    mkdir -p $TEMP_DIR/ai-agent/scripts
+    cp -r agent/scripts/* $TEMP_DIR/ai-agent/scripts/
+    chmod +x $TEMP_DIR/ai-agent/scripts/*.sh 2>/dev/null || true
+fi
+
 # Copy backend-ai-config.json
 cp backend-ai-config.json $TEMP_DIR/
 
@@ -584,6 +666,7 @@ for i in ${!WORKERS[@]}; do
     # Capture values in local variables to avoid subshell issues
     WORKER_IP="${WORKERS[$i]}"
     WORKER_NAME="${WORKER_NAMES[$i]}"
+    WORKER_NODE_PATH="${WORKER_NODE_PATHS[$i]}"
     
     {
         # Disable set -e for background process
@@ -596,7 +679,7 @@ for i in ${!WORKERS[@]}; do
         echo "[BACKGROUND-START] $(date) Starting deployment for ${WORKER_NAME}" >> "$DEPLOY_LOGS_DIR/${WORKER_NAME}.log"
         
         # Run deployment and capture exit code
-        deploy_to_worker "${WORKER_IP}" "${WORKER_NAME}" >> "$DEPLOY_LOGS_DIR/${WORKER_NAME}.log" 2>&1
+        deploy_to_worker "${WORKER_IP}" "${WORKER_NAME}" "${WORKER_NODE_PATH}" >> "$DEPLOY_LOGS_DIR/${WORKER_NAME}.log" 2>&1
         EXIT_CODE=$?
         
         echo "[BACKGROUND-END] $(date) Deployment finished for ${WORKER_NAME} with exit code: $EXIT_CODE" >> "$DEPLOY_LOGS_DIR/${WORKER_NAME}.log"
@@ -640,14 +723,60 @@ for i in ${!WORKER_NAMES[@]}; do
     fi
 done
 
-# DO NOT cleanup temp directory - keep logs for debugging
-# Logs will be cleaned up at the start of next deployment
+# Deployment logs are saved in logs/deployment/
 echo -e "\n${BLUE}Deployment logs saved in: $DEPLOY_LOGS_DIR${NC}"
+echo -e "${BLUE}(Logs will be cleared on next deployment)${NC}"
 
 # Cleanup
 rm -f deployment-package.tar.gz
+        
+        echo "[WORKER-THREAD] All workers processed"
+        echo "[WORKER-THREAD] Finished at $(date)"
+        return 0
+    } 2>&1 | tee "$DEPLOY_LOGS_DIR/worker-thread.log"
+}
 
-print_section "Deployment Summary"
+# Start both threads in parallel
+echo "🚀 Launching parallel build and deployment threads..."
+echo ""
+
+# Start hub thread
+(
+    build_and_deploy_hub
+    HUB_EXIT_CODE=$?
+    echo $HUB_EXIT_CODE > "$DEPLOY_LOGS_DIR/hub-thread.exitcode"
+) &
+HUB_PID=$!
+
+# Start worker thread
+(
+    build_and_deploy_workers
+    WORKER_EXIT_CODE=$?
+    echo $WORKER_EXIT_CODE > "$DEPLOY_LOGS_DIR/worker-thread.exitcode"
+) &
+WORKER_PID=$!
+
+# Show progress while waiting
+echo "⏳ Waiting for both threads to complete..."
+echo "   Hub thread PID: $HUB_PID"
+echo "   Worker thread PID: $WORKER_PID"
+echo ""
+
+# Wait for both threads
+wait $HUB_PID
+HUB_EXIT=$?
+wait $WORKER_PID
+WORKER_EXIT=$?
+
+# Read actual exit codes from files
+if [ -f "$DEPLOY_LOGS_DIR/hub-thread.exitcode" ]; then
+    HUB_EXIT=$(cat "$DEPLOY_LOGS_DIR/hub-thread.exitcode")
+fi
+if [ -f "$DEPLOY_LOGS_DIR/worker-thread.exitcode" ]; then
+    WORKER_EXIT=$(cat "$DEPLOY_LOGS_DIR/worker-thread.exitcode")
+fi
+
+print_section "Phase 3: Deployment Summary"
 
 # Calculate deployment time
 DEPLOY_END=$(date +%s)
@@ -655,11 +784,52 @@ DEPLOY_DURATION=$((DEPLOY_END - DEPLOY_START))
 DEPLOY_MINUTES=$((DEPLOY_DURATION / 60))
 DEPLOY_SECONDS=$((DEPLOY_DURATION % 60))
 
+# Determine thread status
+if [ $HUB_EXIT -eq 0 ]; then
+    HUB_THREAD_STATUS="success"
+else
+    HUB_THREAD_STATUS="failed"
+    case $HUB_EXIT in
+        1) HUB_THREAD_ERROR="Hub build failed" ;;
+        2) HUB_THREAD_ERROR="Hub deployment failed" ;;
+        *) HUB_THREAD_ERROR="Unknown error (exit code: $HUB_EXIT)" ;;
+    esac
+fi
+
+if [ $WORKER_EXIT -eq 0 ]; then
+    WORKER_THREAD_STATUS="success"
+else
+    WORKER_THREAD_STATUS="failed"
+    case $WORKER_EXIT in
+        1) WORKER_THREAD_ERROR="Agent build failed" ;;
+        2) WORKER_THREAD_ERROR="Manager build failed" ;;
+        3) WORKER_THREAD_ERROR="Worker deployment failed" ;;
+        *) WORKER_THREAD_ERROR="Unknown error (exit code: $WORKER_EXIT)" ;;
+    esac
+fi
+
 # Create deployment status table
 echo ""
 echo "╔═══════════════════════════════════════════════════════════════════╗"
 echo "║                    DEPLOYMENT STATUS TABLE                        ║"
 echo "╠═══════════╤═══════════╤═══════════════════════════════════════════╣"
+echo "║ Component │ Status    │ Notes                                     ║"
+echo "╠═══════════╪═══════════╪═══════════════════════════════════════════╣"
+
+# Thread summary
+if [ "$HUB_THREAD_STATUS" = "success" ]; then
+    printf "║ %-9s │ %-9s │ %-41s ║\n" "Hub Thread" "✅ SUCCESS" "Build + Deploy completed"
+else
+    printf "║ %-9s │ %-9s │ %-41s ║\n" "Hub Thread" "❌ FAILED" "$HUB_THREAD_ERROR"
+fi
+
+if [ "$WORKER_THREAD_STATUS" = "success" ]; then
+    printf "║ %-9s │ %-9s │ %-41s ║\n" "Workers" "✅ SUCCESS" "Build + Deploy completed"
+else
+    printf "║ %-9s │ %-9s │ %-41s ║\n" "Workers" "❌ FAILED" "$WORKER_THREAD_ERROR"
+fi
+
+echo "╠═══════════╪═══════════╪═══════════════════════════════════════════╣"
 echo "║ Machine   │ Status    │ Notes                                     ║"
 echo "╠═══════════╪═══════════╪═══════════════════════════════════════════╣"
 
@@ -692,9 +862,42 @@ echo "╚═══════════╧═══════════�
 echo ""
 
 # Show summary counts
-echo -e "${GREEN}✅ Successful: ${#SUCCESSFUL_WORKERS[@]} workers + hub${NC}"
-if [ ${#FAILED_WORKERS[@]} -gt 0 ]; then
-    echo -e "${RED}❌ Failed: ${#FAILED_WORKERS[@]} workers${NC}"
+TOTAL_SUCCESS=0
+TOTAL_FAILED=0
+
+# Count successes
+if [ -f "$DEPLOY_LOGS_DIR/hub.success" ]; then
+    ((TOTAL_SUCCESS++))
+else
+    ((TOTAL_FAILED++))
+fi
+TOTAL_SUCCESS=$((TOTAL_SUCCESS + ${#SUCCESSFUL_WORKERS[@]}))
+TOTAL_FAILED=$((TOTAL_FAILED + ${#FAILED_WORKERS[@]}))
+
+echo ""
+if [ $TOTAL_FAILED -eq 0 ]; then
+    echo -e "${GREEN}✅ All deployments successful: 1 hub + ${#SUCCESSFUL_WORKERS[@]} workers${NC}"
+else
+    echo -e "${GREEN}✅ Successful: $TOTAL_SUCCESS${NC}"
+    echo -e "${RED}❌ Failed: $TOTAL_FAILED${NC}"
+fi
+
+# Show thread timing
+echo ""
+echo "⏱️  Thread Timing:"
+if [ -f "$DEPLOY_LOGS_DIR/hub-thread.log" ]; then
+    HUB_START=$(grep "Starting at" "$DEPLOY_LOGS_DIR/hub-thread.log" | head -1 | cut -d' ' -f4-)
+    HUB_END=$(grep "Finished at" "$DEPLOY_LOGS_DIR/hub-thread.log" | tail -1 | cut -d' ' -f4-)
+    if [ -n "$HUB_START" ] && [ -n "$HUB_END" ]; then
+        echo "   Hub thread: $HUB_START → $HUB_END"
+    fi
+fi
+if [ -f "$DEPLOY_LOGS_DIR/worker-thread.log" ]; then
+    WORKER_START=$(grep "Starting at" "$DEPLOY_LOGS_DIR/worker-thread.log" | head -1 | cut -d' ' -f4-)
+    WORKER_END=$(grep "Finished at" "$DEPLOY_LOGS_DIR/worker-thread.log" | tail -1 | cut -d' ' -f4-)
+    if [ -n "$WORKER_START" ] && [ -n "$WORKER_END" ]; then
+        echo "   Worker thread: $WORKER_START → $WORKER_END"
+    fi
 fi
 
 echo ""
@@ -707,7 +910,24 @@ echo "║  Hub: http://192.168.1.30/                    ║"
 echo "╚═══════════════════════════════════════════════╝"
 
 # Exit with error if any deployments failed
-if [ ${#FAILED_WORKERS[@]} -gt 0 ]; then
+if [ $TOTAL_FAILED -gt 0 ] || [ "$HUB_THREAD_STATUS" = "failed" ] || [ "$WORKER_THREAD_STATUS" = "failed" ]; then
+    echo ""
+    echo "📋 Error Details:"
+    
+    # Show hub thread errors
+    if [ "$HUB_THREAD_STATUS" = "failed" ]; then
+        echo ""
+        echo "Hub Thread Errors:"
+        grep -E "ERROR:|error:|failed" "$DEPLOY_LOGS_DIR/hub-thread.log" | tail -10
+    fi
+    
+    # Show worker thread errors
+    if [ "$WORKER_THREAD_STATUS" = "failed" ]; then
+        echo ""
+        echo "Worker Thread Errors:"
+        grep -E "ERROR:|error:|failed" "$DEPLOY_LOGS_DIR/worker-thread.log" | tail -10
+    fi
+    
     exit 1
 fi
 

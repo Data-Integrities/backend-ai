@@ -1,6 +1,7 @@
-agent/node_modules
-hub/node_modules
-shared/node_modules
-agent/manager/node_modules
-agent-manager/node_modules
-hub-manager/node_modules
+# Node modules - ignore all of them everywhere
+node_modules/
+**/node_modules/
+
+# Logs
+logs/
+startup-logs/

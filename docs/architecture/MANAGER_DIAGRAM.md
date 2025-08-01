@@ -7,7 +7,7 @@
 │                           Developer Machine                          │
 │                                                                     │
 │  ┌─────────────────┐                                               │
-│  │ deploy-version.sh│ ─────┐                                       │
+│  │ update-versions.sh│ ─────┐                                       │
 │  └─────────────────┘      │                                       │
 │                           ▼                                       │
 │                    Builds & Uploads                               │
@@ -86,7 +86,7 @@ All managers run on **port 3081** - just like all file servers run on the same p
 ## Update Flow Sequence
 
 ```
-1. Developer runs: ./deploy-version.sh 2.0.11
+1. Developer runs: ./update-versions.sh 2.0.11
    │
    ├─► Builds hub and agent
    ├─► Uploads to NAS

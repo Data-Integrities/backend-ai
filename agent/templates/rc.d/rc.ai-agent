@@ -21,6 +21,21 @@ mkdir -p "$(dirname "$LOGFILE")"
 start() {
     echo "Starting AI Agent..."
     
+    # Check if Node.js is available
+    if [ ! -x "$NODE_BIN" ]; then
+        echo "ERROR: Node.js not found at $NODE_BIN"
+        echo "Please ensure Node.js is installed before starting the AI Agent service"
+        echo "Run: /boot/config/go to install Node.js"
+        return 1
+    fi
+    
+    # Check if agent directory exists
+    if [ ! -d "$AGENT_DIR" ]; then
+        echo "ERROR: Agent directory not found at $AGENT_DIR"
+        echo "Please deploy the AI Agent first"
+        return 1
+    fi
+    
     # Check if already running using process detection
     EXISTING_PIDS=$(ps aux | grep "node.*ai-agent/agent/dist/api/index.js" | grep -v grep | awk '{print $2}')
     if [ -n "$EXISTING_PIDS" ]; then

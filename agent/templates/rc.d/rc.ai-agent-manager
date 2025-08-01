@@ -103,6 +103,21 @@ checkStatus() {
 start() {
     echo "Starting AI Agent Manager..."
     
+    # Check if Node.js is available
+    if [ ! -x "$NODE_BIN" ]; then
+        echo "ERROR: Node.js not found at $NODE_BIN"
+        echo "Please ensure Node.js is installed before starting the AI Agent Manager service"
+        echo "Run: /boot/config/go to install Node.js"
+        return 1
+    fi
+    
+    # Check if manager directory exists
+    if [ ! -d "$MANAGER_DIR" ]; then
+        echo "ERROR: Manager directory not found at $MANAGER_DIR"
+        echo "Please deploy the AI Agent Manager first"
+        return 1
+    fi
+    
     # Check if already running
     if checkStatus > /dev/null 2>&1; then
         echo "AI Agent Manager is already running"

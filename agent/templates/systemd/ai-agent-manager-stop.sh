@@ -72,13 +72,19 @@ systemctl stop ai-agent-manager
 EOF
 )
         
-        if curl -s -X POST \
+        log "Sending payload: $PAYLOAD"
+        
+        RESPONSE=$(curl -s -X POST \
             -H "Content-Type: application/json" \
             -d "$PAYLOAD" \
-            "${HUB_URL}/api/executions/${CORRELATION_ID}/complete" > /dev/null 2>&1; then
+            "${HUB_URL}/api/executions/${CORRELATION_ID}/complete" 2>&1)
+        
+        if [ $? -eq 0 ]; then
             log "Successfully notified hub of manager stop completion"
+            log "Response: $RESPONSE"
         else
             log "Failed to notify hub of manager stop completion"
+            log "Error: $RESPONSE"
         fi
     fi
     

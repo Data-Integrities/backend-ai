@@ -21,10 +21,22 @@ export function setupMultiAgentEndpoints(app: Express, httpAgents: SimpleHttpAge
     // Start parent execution tracking
     correlationTracker.startExecution(parentCorrelationId, 'start-all', 'multi-agent', 'start-all');
     
+    // Pre-register all child IDs to prevent race condition
+    const childCorrelationIds: string[] = [];
+    agents.forEach((agentName: string) => {
+      const childCorrelationId = correlationTracker.generateCorrelationId();
+      childCorrelationIds.push(childCorrelationId);
+      // Register child with parent immediately
+      correlationTracker.startExecution(childCorrelationId, 'start-agent', agentName, 'start-agent', parentCorrelationId);
+    });
+    
     // Start all child operations
-    const childPromises = agents.map(async (agentName: string) => {
+    const childPromises = agents.map(async (agentName: string, index: number) => {
       const agent = httpAgents.getAgent(agentName);
+      const childCorrelationId = childCorrelationIds[index];
+      
       if (!agent) {
+        correlationTracker.failExecution(childCorrelationId, 'Agent not found');
         return {
           agentName,
           success: false,
@@ -32,11 +44,6 @@ export function setupMultiAgentEndpoints(app: Express, httpAgents: SimpleHttpAge
         };
       }
       
-      // Generate child correlationId
-      const childCorrelationId = correlationTracker.generateCorrelationId();
-      
-      // Start child execution with parentId
-      correlationTracker.startExecution(childCorrelationId, 'start-agent', agentName, 'start-agent', parentCorrelationId);
       httpAgents.setPendingCorrelationId(agentName, childCorrelationId);
       
       try {
@@ -96,13 +103,25 @@ export function setupMultiAgentEndpoints(app: Express, httpAgents: SimpleHttpAge
     
     console.log(`[MULTI-AGENT] Starting multi-agent stop operation with parent ${parentCorrelationId}`);
     
-    // Start parent execution tracking
+    // Start parent execution tracking with expected child count
     correlationTracker.startExecution(parentCorrelationId, 'stop-all', 'multi-agent', 'stop-all');
     
+    // Pre-register all child IDs to prevent race condition
+    const childCorrelationIds: string[] = [];
+    agents.forEach((agentName: string) => {
+      const childCorrelationId = correlationTracker.generateCorrelationId();
+      childCorrelationIds.push(childCorrelationId);
+      // Register child with parent immediately
+      correlationTracker.startExecution(childCorrelationId, 'stop-agent', agentName, 'stop-agent', parentCorrelationId);
+    });
+    
     // Stop all child operations
-    const childPromises = agents.map(async (agentName: string) => {
+    const childPromises = agents.map(async (agentName: string, index: number) => {
       const agent = httpAgents.getAgent(agentName);
+      const childCorrelationId = childCorrelationIds[index];
+      
       if (!agent) {
+        correlationTracker.failExecution(childCorrelationId, 'Agent not found');
         return {
           agentName,
           success: false,
@@ -110,11 +129,6 @@ export function setupMultiAgentEndpoints(app: Express, httpAgents: SimpleHttpAge
         };
       }
       
-      // Generate child correlationId
-      const childCorrelationId = correlationTracker.generateCorrelationId();
-      
-      // Start child execution with parentId
-      correlationTracker.startExecution(childCorrelationId, 'stop-agent', agentName, 'stop-agent', parentCorrelationId);
       httpAgents.setPendingCorrelationId(agentName, childCorrelationId);
       
       try {

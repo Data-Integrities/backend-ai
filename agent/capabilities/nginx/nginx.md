@@ -19,13 +19,51 @@ The nginx configuration files are located in:
 - `/etc/nginx/sites-enabled/` - Enabled site configurations (symlinks)
 - `/etc/letsencrypt/` - SSL certificates managed by certbot
 
-## Supported Commands
+## Understanding Nginx Forwarders
+
+When users ask about "forwarders" or "nginx sites", they want to see all the reverse proxy configurations. These configurations tell nginx how to route incoming requests to backend services.
+
+### Key Concepts:
+- **sites-available**: Directory containing all site configuration files (both active and inactive)
+- **sites-enabled**: Directory containing symlinks to active configurations
+- **server_name**: The domain name in the nginx config (what users access)
+- **proxy_pass**: Where nginx forwards the requests to (usually an internal IP:port)
+- **Access control**: Some sites restrict access to internal network only using "allow 192.168.1.0/24; deny all;"
 
 ### List Forwarders
+
+When asked to "list forwarders", "show nginx sites", or "what forwarders do I have", you need to:
+
+**IMPORTANT**: Execute the JSON parser script to get properly formatted data. The script returns JSON that can be formatted using the general-purpose format-json utility.
+
+Execute this command to get a formatted table:
+```bash
+# For command-line interface (when you're executing commands directly)
+/opt/ai-agent/scripts/list-nginx-forwarders.sh | /opt/ai-agent/utilities/format-json.js - -format text
+
+# For backend-ai chat interface (when responding to web browser requests)
+/opt/ai-agent/scripts/list-nginx-forwarders.sh | /opt/ai-agent/utilities/format-json.js - -format md
 ```
-list nginx forwarders
-show all nginx sites
-what domains are configured in nginx
+
+**IMPORTANT**: When responding to requests from the backend-ai chat interface (web browser), always use `-format md` to return markdown tables that will be properly rendered in the browser.
+
+This will produce a clean table showing:
+- **siteName**: The configuration file name
+- **domains**: The domain names from server_name directive
+- **listens**: Ports the site listens on (usually 80, 443)
+- **forwardsTo**: The backend server IP:port
+- **allow**: IP ranges allowed (for private sites)
+- **private**: ✓ if restricted to internal network, ✗ if public
+- **enabled**: ✓ if site is active, ✗ if disabled
+
+For the backend-ai chat interface which renders markdown, use:
+```bash
+/opt/ai-agent/scripts/list-nginx-forwarders.sh | /opt/ai-agent/utilities/format-json.js - -format md
+```
+
+For raw JSON output:
+```bash
+/opt/ai-agent/scripts/list-nginx-forwarders.sh
 ```
 
 ### Check SSL Certificates
@@ -49,11 +87,37 @@ test nginx configuration
 restart nginx service
 ```
 
-## Examples
+## Implementation Examples
 
-1. **List all forwarders with their mappings:**
+1. **List all forwarders with the JSON parser:**
+   
+   The JSON parser script at `/opt/ai-agent/scripts/list-nginx-forwarders.sh` returns structured data that can be formatted in different ways:
+   
+   **Always use markdown format when responding to backend-ai chat requests:**
    ```bash
-   grep -E "server_name|proxy_pass|listen" /etc/nginx/sites-enabled/* | grep -v "^#"
+   /opt/ai-agent/scripts/list-nginx-forwarders.sh | /opt/ai-agent/utilities/format-json.js - -format md
+   ```
+   
+   This produces a properly formatted markdown table with:
+   - Abbreviated column headers (prv, ena)
+   - Visual indicators (✓ and ✗)
+   - Clean formatting for web browser rendering
+   
+   **For a simplified view with just key columns:**
+   ```bash
+   json=$(/opt/ai-agent/scripts/list-nginx-forwarders.sh)
+   echo "$json" | python3 -c "
+   import json, sys
+   data = json.load(sys.stdin)
+   print('%-40s %-20s %-3s %-3s' % ('Domain', 'Target', 'Prv', 'Ena'))
+   print('%-40s %-20s %-3s %-3s' % ('-'*40, '-'*20, '-'*3, '-'*3))
+   for site in data['sites']:
+       domain = site['domains'][0] if site['domains'] else site['siteName']
+       target = f\"{site['forwardsTo']['ip']}:{site['forwardsTo']['port']}\" if site['forwardsTo']['ip'] else 'N/A'
+       prv = '✓' if site['private'] else '✗'
+       ena = '✓' if site['enabled'] else '✗'
+       print('%-40s %-20s %-3s %-3s' % (domain, target, prv, ena))
+   "
    ```
 
 2. **Check certificate expiration:**
@@ -118,6 +182,27 @@ restart nginx service
    # Verify upstream is reachable
    curl -I http://192.168.1.48:80
    ```
+
+## Utilities
+
+### format-json utility
+
+The `format-json` utility is available at `/opt/ai-agent/utilities/format-json.js` for formatting JSON data:
+
+- **Text format** (default): Creates aligned columns for command-line display
+- **Markdown format**: Creates markdown tables for rich display interfaces
+- **JSON format**: Pretty-prints the raw JSON
+
+Usage:
+```bash
+# From file
+/opt/ai-agent/utilities/format-json.js file.json -format text
+
+# From stdin
+command | /opt/ai-agent/utilities/format-json.js - -format md
+
+# Formats supported: text (default), md/markdown, json
+```
 
 ## Security Considerations
 

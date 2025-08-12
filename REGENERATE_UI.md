@@ -178,11 +178,10 @@ function formatTime(date = new Date()) {
 }
 ```
 
-### Last Update Time
-
-- Shows when agent status was last polled
-- Same format as clock
-- Updates after each successful poll
+**Purpose**:
+- Provides timestamp reference for screenshots
+- Helps correlate UI events with log entries
+- Useful for debugging and tracking action timing
 
 ## Dialogs
 

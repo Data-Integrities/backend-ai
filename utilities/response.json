@@ -1,0 +1,14 @@
+{
+  "statusCode": 200,
+  "headers": {
+    "x-powered-by": "Express",
+    "access-control-allow-origin": "*",
+    "content-type": "application/json; charset=utf-8",
+    "content-length": "99",
+    "etag": "W/\"63-Ylmb4RBEUCC0ffFZIDx5LWMFY3M\"",
+    "date": "Sat, 02 Aug 2025 17:11:22 GMT",
+    "connection": "keep-alive",
+    "keep-alive": "timeout=5"
+  },
+  "body": "{\"requestId\":\"req_1754154682922_c483d12c\",\"status\":\"queued\",\"message\":\"Request queued for any tab\"}"
+}

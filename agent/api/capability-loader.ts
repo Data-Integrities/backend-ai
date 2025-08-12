@@ -46,14 +46,24 @@ export class CapabilityLoader {
             
             // Check if it exports the required functions
             if (handlerModule.parseDNSCommand && handlerModule.handleDNSCommand) {
-                // For now, we'll handle DNS capability specifically
-                // In future, we can make this more generic
+                // DNS capability
                 this.handlers.set('cloudflare-dns', {
                     canHandle: (command: string) => {
                         const parsed = handlerModule.parseDNSCommand(command);
                         return parsed !== null;
                     },
                     handle: handlerModule.handleDNSCommand
+                });
+                
+                console.log(`Loaded capability: ${capabilityName}`);
+            } else if (handlerModule.parseNginxCommand && handlerModule.handleNginxCommand) {
+                // Nginx capability
+                this.handlers.set('nginx-forwarders', {
+                    canHandle: (command: string) => {
+                        const parsed = handlerModule.parseNginxCommand(command);
+                        return parsed !== null;
+                    },
+                    handle: handlerModule.handleNginxCommand
                 });
                 
                 console.log(`Loaded capability: ${capabilityName}`);

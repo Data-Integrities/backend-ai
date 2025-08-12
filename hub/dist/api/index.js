@@ -51,6 +51,9 @@ const correlation_endpoints_1 = require("./correlation-endpoints");
 const correlation_tracker_1 = require("./correlation-tracker");
 const chat_endpoints_1 = require("./chat-endpoints");
 const multi_agent_endpoints_1 = require("./multi-agent-endpoints");
+const tab_registry_1 = require("./tab-registry");
+const browser_request_endpoints_1 = require("./browser-request-endpoints");
+const command_queue_endpoints_1 = require("./command-queue-endpoints");
 const shared_1 = require("@proxmox-ai-control/shared");
 const fs_1 = __importDefault(require("fs"));
 // Load environment variables
@@ -81,7 +84,12 @@ const PORT = config.hub.port;
 app.use((0, cors_1.default)());
 app.use(express_1.default.json());
 // Initialize components
-const aiProcessor = new AICommandProcessor_1.AICommandProcessor(process.env.ANTHROPIC_API_KEY || '');
+// Get the decrypted API key from config
+const anthropicApiKey = config.anthropic?.apiKey || process.env.ANTHROPIC_API_KEY || '';
+if (!anthropicApiKey) {
+    console.error('[HUB] WARNING: No Anthropic API key found in config or environment');
+}
+const aiProcessor = new AICommandProcessor_1.AICommandProcessor(anthropicApiKey);
 const httpAgents = new SimpleHttpAgents_1.SimpleHttpAgents();
 const sshManager = new ssh_manager_1.SSHManager();
 // Load HTTP agents configuration
@@ -127,12 +135,17 @@ app.get('/', async (req, res) => {
 (0, manager_control_1.setupManagerControlEndpoints)(app, httpAgents);
 // Setup correlation tracking endpoints
 (0, correlation_endpoints_1.setupCorrelationEndpoints)(app);
+(0, command_queue_endpoints_1.setupCommandQueueEndpoints)(app);
 // Setup SSH management endpoints
 (0, ssh_manager_1.setupSSHEndpoints)(app, httpAgents, sshManager);
 // Setup chat logging endpoints
 (0, chat_endpoints_1.setupChatEndpoints)(app);
 // Setup multi-agent endpoints
 (0, multi_agent_endpoints_1.setupMultiAgentEndpoints)(app, httpAgents);
+// Setup tab registry endpoints
+(0, tab_registry_1.setupTabEndpoints)(app);
+// Setup browser request queue endpoints
+(0, browser_request_endpoints_1.setupBrowserRequestEndpoints)(app);
 // API Routes
 // Get all connected agents
 app.get('/api/agents', async (req, res) => {
@@ -195,9 +208,66 @@ app.post('/api/command', async (req, res) => {
         if (targetAgents && targetAgents.length > 0) {
             request.targetAgents = targetAgents;
         }
-        // Send command to HTTP agents
+        // Check if no specific agents were identified - handle locally if so
+        if (!request.targetAgents || request.targetAgents.length === 0) {
+            console.log(`No specific agents detected in command: "${command}". Handling locally.`);
+            // Handle the command locally using hub's Anthropic connection
+            try {
+                // Import Anthropic client
+                const Anthropic = require('@anthropic-ai/sdk');
+                const anthropic = new Anthropic({
+                    apiKey: process.env.ANTHROPIC_API_KEY || ''
+                });
+                // Create a system prompt for local handling
+                const systemPrompt = `You are Claude Code, an AI assistant managing the Backend AI infrastructure hub.
+You have access to information about all connected agents and can answer questions about the system.
+
+Current system status:
+- Total agents: ${availableAgents.length}
+- Online agents: ${availableAgents.map((a) => `${a.agentId} (${a.summary})`).join(', ')}
+
+When asked about agent status or general system queries, provide helpful information based on the available data.
+For commands that need to be executed on specific machines, explain that the user should specify which machine to target.`;
+                const response = await anthropic.messages.create({
+                    model: 'claude-3-5-sonnet-20241022',
+                    max_tokens: 2000,
+                    temperature: 0.7,
+                    system: systemPrompt,
+                    messages: [
+                        {
+                            role: 'user',
+                            content: command
+                        }
+                    ]
+                });
+                const content = response.content[0];
+                if (content.type === 'text') {
+                    // Return the response as if it came from the hub itself
+                    return res.json({
+                        success: true,
+                        requestId: request.id,
+                        message: 'Command handled locally by hub',
+                        targetAgents: ['hub'],
+                        results: [{
+                                agentId: 'hub',
+                                success: true,
+                                output: content.text,
+                                timestamp: new Date().toISOString(),
+                                correlationId: correlation_tracker_1.correlationTracker.generateCorrelationId()
+                            }]
+                    });
+                }
+            }
+            catch (error) {
+                console.error('Error handling command locally:', error);
+                return res.status(500).json({
+                    error: `Failed to process command locally: ${error.message}`
+                });
+            }
+        }
+        // Send command to specific HTTP agents
         const results = [];
-        const targetAgentNames = request.targetAgents || availableAgents.map((a) => a.agentId);
+        const targetAgentNames = request.targetAgents || [];
         for (const agentName of targetAgentNames) {
             try {
                 // Generate correlationId for this command

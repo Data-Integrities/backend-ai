@@ -16,6 +16,6 @@ export declare class CapabilitiesManager {
     ensureCapabilitiesDir(): Promise<void>;
     getCapabilities(includeContent?: boolean): Promise<CapabilitiesData>;
     getCapabilityReadme(capabilityPath: string): Promise<string>;
-    addCapability(name: string, folder: string, description: string, readmeContent: string): Promise<void>;
+    addCapability(name: string, filename: string, description: string, readmeContent: string): Promise<void>;
 }
 //# sourceMappingURL=capabilities-manager.d.ts.map

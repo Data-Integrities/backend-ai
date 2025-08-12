@@ -25,9 +25,16 @@ export class AgentAICommandProcessor {
         try {
             // Load agent-specific capabilities from README files
             const capabilities = await this.capabilitiesManager.getCapabilities(true);
-            const capabilityDocs = capabilities.capabilities
-                .map(cap => `${cap.name}: ${cap.description}`)
-                .join('\n');
+            
+            // Build full capability documentation including content
+            const capabilityDocs = [];
+            for (const cap of capabilities.capabilities) {
+                if (cap.readmeContent) {
+                    capabilityDocs.push(`## ${cap.name}\n\n${cap.readmeContent}`);
+                } else {
+                    capabilityDocs.push(`## ${cap.name}\n\n${cap.description}`);
+                }
+            }
             
             // Load the main capabilities README
             const mainReadme = await this.capabilitiesManager.getCapabilityReadme('README.md');
@@ -39,7 +46,7 @@ Platform: ${process.platform}
 ${mainReadme}
 
 Available Capabilities:
-${capabilityDocs}
+${capabilityDocs.join('\n\n')}
 `;
         } catch (error) {
             console.error('Failed to load capabilities:', error);
@@ -58,18 +65,32 @@ IMPORTANT:
 2. Use the agent's documented capabilities to understand what you can help with
 3. You HAVE FULL FILE SYSTEM ACCESS - you can read, write, and execute commands on this system
 4. When users ask you to examine files or directories, you should propose the appropriate commands
-5. All commands you suggest will require user approval before execution (similar to Claude Code)
+5. Documented capabilities execute immediately, other commands require approval
 6. Be specific about what commands you would run to accomplish tasks
 7. You can access ANY directory on the system including /etc/nginx, /var/log, etc.
 
 COMMAND EXECUTION:
-When users ask you to perform tasks, you should:
-1. Explain what you're going to do
-2. List the specific commands you would run
-3. Format commands in code blocks using backticks
-4. Example: "I'll examine your nginx configuration by running: \`cat /etc/nginx/nginx.conf\`"
+When users ask you to perform tasks:
+1. IMMEDIATELY execute the necessary commands to get the results they want
+2. Show the RESULTS first and foremost - that's what the user cares about
+3. You can optionally show which commands you ran, but RESULTS are mandatory
+4. Format commands in code blocks with triple backticks so they get executed automatically
 
-Remember: You're not limited to just discussing - you can actually propose and execute commands with user approval.
+Examples:
+- User asks: "list my nginx forwarders"
+- You say: "I'll check your nginx forwarders configuration."
+- Then put the actual commands in code blocks with triple backticks
+- The system will execute these and append the results
+
+IMPORTANT RULES:
+- ALWAYS execute commands to get results - don't just show what commands COULD be run
+- The user wants RESULTS, not a tutorial on shell commands
+- If you show a command in a code block, it WILL be executed automatically
+- Focus on delivering the information the user requested
+
+For other commands:
+- Ask for approval before running arbitrary shell commands
+- Example: "I can examine your nginx configuration. Would you like me to run: cat /etc/nginx/nginx.conf?"
 
 PERMISSION HANDLING:
 When discussing operations that could be dangerous or have significant impact, wrap the relevant part of your response with permission markers:

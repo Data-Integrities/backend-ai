@@ -1,6 +1,6 @@
 {
   "name": "@backend-ai/agent",
-  "version": "2.1.89",
+  "version": "2.1.64",
   "description": "Backend AI Agent - HTTP-only implementation",
   "main": "dist/api/index.js",
   "scripts": {

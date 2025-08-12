@@ -78,7 +78,6 @@ This guide lists all screenshots needed for pixel-perfect UI regeneration. Pleas
 
 ### Clock Display
 - `status-bar-clock-format.png` - Showing "2:45:33 PM" format (no leading zero)
-- `status-bar-last-update.png` - The "Last Update" timestamp
 
 ### Full Status Bar
 - `status-bar-complete.png` - Entire status bar in context

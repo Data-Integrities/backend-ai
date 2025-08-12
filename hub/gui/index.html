@@ -16,6 +16,9 @@
     <!-- Shoelace - Added but not yet used -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.11.2/cdn/themes/dark.css" />
     <script type="module" src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.11.2/cdn/shoelace-autoloader.js"></script>
+    
+    <!-- Marked.js for markdown rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -361,6 +364,12 @@
             display: flex;
             flex-direction: column;
             height: calc(100vh - 70px); /* 48px header + 22px status bar */
+            transition: height 0.3s ease;
+        }
+        
+        /* When console is visible, reduce chat container height */
+        body.console-visible .chat-container {
+            height: calc(100vh - 70px - 25vh); /* Subtract console height */
         }
         
         .chat-messages {
@@ -486,6 +495,7 @@
             padding: 12px 16px;
             border-radius: 12px;
             border: 1px solid var(--border-color);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji', sans-serif;
         }
         
         .message.user .message-content {
@@ -502,6 +512,105 @@
         .message.user .message-time {
             text-align: right;
             color: rgba(255, 255, 255, 0.7);
+        }
+        
+        /* Markdown styling within messages */
+        .message-content h1,
+        .message-content h2,
+        .message-content h3,
+        .message-content h4,
+        .message-content h5,
+        .message-content h6 {
+            margin: 16px 0 8px 0;
+            font-weight: 600;
+            line-height: 1.25;
+        }
+        
+        .message-content h1 { font-size: 1.5em; }
+        .message-content h2 { font-size: 1.3em; }
+        .message-content h3 { font-size: 1.1em; }
+        .message-content h4 { font-size: 1em; }
+        .message-content h5 { font-size: 0.9em; }
+        .message-content h6 { font-size: 0.85em; }
+        
+        .message-content p {
+            margin: 8px 0;
+            line-height: 1.5;
+        }
+        
+        .message-content code {
+            background: rgba(0, 0, 0, 0.1);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 0.9em;
+        }
+        
+        .message-content pre {
+            background: rgba(0, 0, 0, 0.1);
+            padding: 12px;
+            border-radius: 4px;
+            overflow-x: auto;
+            margin: 8px 0;
+        }
+        
+        .message-content pre code {
+            background: none;
+            padding: 0;
+        }
+        
+        .message-content ul,
+        .message-content ol {
+            margin: 8px 0;
+            padding-left: 24px;
+        }
+        
+        .message-content li {
+            margin: 4px 0;
+            line-height: 1.5;
+        }
+        
+        .message-content blockquote {
+            border-left: 4px solid var(--accent-primary);
+            margin: 8px 0;
+            padding-left: 16px;
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+        
+        .message-content a {
+            color: var(--accent-primary);
+            text-decoration: none;
+            border-bottom: 1px solid transparent;
+            transition: border-color 0.2s;
+        }
+        
+        .message-content a:hover {
+            border-bottom-color: var(--accent-primary);
+        }
+        
+        .message-content table {
+            border-collapse: collapse;
+            margin: 8px 0;
+            width: 100%;
+        }
+        
+        .message-content th,
+        .message-content td {
+            border: 1px solid var(--border-color);
+            padding: 8px 12px;
+            text-align: left;
+        }
+        
+        .message-content th {
+            background: var(--bg-secondary);
+            font-weight: 600;
+        }
+        
+        .message-content hr {
+            border: none;
+            border-top: 1px solid var(--border-color);
+            margin: 16px 0;
         }
         
         /* Copy button styles */
@@ -768,6 +877,45 @@
             color: var(--text-primary);
         }
         
+        .console-tabs {
+            display: flex;
+            gap: 10px;
+            height: 100%;
+            align-items: center;
+        }
+        
+        .console-tab {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 4px 12px;
+            font-size: 12px;
+            border-radius: 4px 4px 0 0;
+            transition: all 0.2s;
+        }
+        
+        .console-tab:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+        
+        .console-tab.active {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+        
+        .console-tab-content {
+            display: none;
+            height: 100%;
+            overflow-y: auto;
+        }
+        
+        .console-tab-content.active {
+            display: block;
+        }
+        
         .console-clear-button {
             background: none;
             border: none;
@@ -851,6 +999,14 @@
         
         .status-timeout {
             color: #ff9500; /* orange */
+        }
+        
+        .status-debug {
+            color: #b392f0; /* purple */
+        }
+        
+        .status-info {
+            color: #58a6ff; /* blue */
         }
         
         .status-timeout-success {
@@ -1145,6 +1301,7 @@
             max-height: 80vh;
             display: flex;
             flex-direction: column;
+            overflow: hidden; /* Prevent modal itself from scrolling */
         }
         
         .log-viewer-modal .modal-header {
@@ -1158,8 +1315,101 @@
         
         .log-viewer-modal .modal-body {
             flex: 1;
-            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
             min-height: 0;
+            overflow: hidden; /* Prevent body from scrolling */
+        }
+        
+        /* Fixed command info section */
+        .log-viewer-modal .command-info-section {
+            flex-shrink: 0;
+            padding-bottom: 10px;
+        }
+        
+        /* Container for timeline and logs sections */
+        .log-viewer-modal .sections-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            gap: 10px;
+        }
+        
+        /* Timeline section - 50% height */
+        .log-viewer-modal .timeline-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            overflow: hidden;
+        }
+        
+        .log-viewer-modal .timeline-section h3 {
+            flex-shrink: 0;
+            margin-top: 0;
+            margin-bottom: 8px;
+        }
+        
+        .log-viewer-modal .timeline-content {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding-right: 5px;
+            min-height: 0;
+        }
+        
+        /* Logs section - 50% height */
+        .log-viewer-modal .logs-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            overflow: hidden;
+        }
+        
+        .log-viewer-modal .logs-section h3 {
+            flex-shrink: 0;
+            margin-top: 0;
+            margin-bottom: 8px;
+        }
+        
+        .log-viewer-modal .logs-content {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: auto;
+            padding-right: 5px;
+            min-height: 0;
+        }
+        
+        /* Subtle scrollbar styles with hover effect */
+        .timeline-content::-webkit-scrollbar,
+        .logs-content::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        .timeline-content::-webkit-scrollbar-track,
+        .logs-content::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 4px;
+        }
+        
+        .timeline-content::-webkit-scrollbar-thumb,
+        .logs-content::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.075);
+            border-radius: 4px;
+            transition: background 0.2s ease;
+        }
+        
+        .timeline-content:hover::-webkit-scrollbar-thumb,
+        .logs-content:hover::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        
+        .timeline-content::-webkit-scrollbar-thumb:hover,
+        .logs-content::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.5);
         }
         
         .log-viewer-modal .command-info {
@@ -1279,11 +1529,11 @@
                             <div class="hamburger-line"></div>
                         </div>
                         <div class="dropdown-menu" :class="{ 'open': open }" x-show="open" x-transition>
-                            <div class="dropdown-item" @click="window.startAllAgents(); open = false">Start All Agents</div>
-                            <div class="dropdown-item" @click="window.stopAllAgents(); open = false">Stop All Agents</div>
+                            <div class="dropdown-item" @click="window.performControlAction('startAllAgents'); open = false">Start All Agents</div>
+                            <div class="dropdown-item" @click="window.performControlAction('stopAllAgents'); open = false">Stop All Agents</div>
                             <div class="dropdown-divider"></div>
-                            <div class="dropdown-item" @click="window.startAllManagers(); open = false">Start All Managers</div>
-                            <div class="dropdown-item" @click="window.stopAllManagers(); open = false">Stop All Managers</div>
+                            <div class="dropdown-item" @click="window.performControlAction('startAllManagers'); open = false">Start All Managers</div>
+                            <div class="dropdown-item" @click="window.performControlAction('stopAllManagers'); open = false">Stop All Managers</div>
                         </div>
                     </div>
                 </h3>
@@ -1298,7 +1548,7 @@
         <div class="main-content">
             <!-- Tab Bar -->
             <div class="tab-bar" id="tab-bar">
-                <div class="tab new-chat active" data-tab-id="new" onclick="switchTab('new')">
+                <div class="tab new-chat active" data-tab-id="new" onclick="window.performControlAction('switchTab', {tabId: 'new'})">
                     <span class="tab-title">+ New Chat</span>
                 </div>
             </div>
@@ -1309,7 +1559,7 @@
                 <div class="chat-container" data-tab-id="new">
                     <div class="new-chat-form">
                         <h2>Start a New Task</h2>
-                        <form onsubmit="startNewTask(event)">
+                        <form onsubmit="event.preventDefault(); const title = document.getElementById('task-title').value.trim(); const command = document.getElementById('task-command').value.trim(); window.performChatAction('startTask', {tabTitle: title, initialPrompt: command});">
                             <div class="form-group">
                                 <label for="task-command">What would you like to do?</label>
                                 <textarea 
@@ -1346,9 +1596,16 @@
     <!-- Console Window -->
     <div class="console-window" id="console-window">
         <div class="console-header">
-            <div style="display: flex; align-items: center;">
-                <span>Console</span>
-                <button class="console-clear-button" onclick="clearConsoleContent()" title="Clear Console" style="margin-left: 15px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                <div style="display: flex; align-items: center;">
+                    <span>Console</span>
+                    <!-- Console Tabs -->
+                    <div class="console-tabs" style="margin-left: 20px;">
+                        <button class="console-tab active" id="chat-tab" onclick="window.performControlAction('switchConsoleTab', {tab: 'chat'})">Chat</button>
+                        <button class="console-tab" id="control-tab" onclick="window.performControlAction('switchConsoleTab', {tab: 'control'})">Control</button>
+                    </div>
+                </div>
+                <button class="console-clear-button" onclick="window.performControlAction('clearConsole')" title="Clear Current Tab" style="margin-left: 15px;">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                         <!-- 4 horizontal lines -->
                         <path d="M2 3h12v1H2zM2 5h12v1H2zM2 7h12v1H2zM2 9h12v1H2z"/>
@@ -1359,21 +1616,42 @@
             </div>
         </div>
         <div class="console-content" id="console-content">
-            <table class="console-table" id="console-table">
-                <thead>
-                    <tr>
-                        <th>Start</th>
-                        <th>Agent</th>
-                        <th>Command</th>
-                        <th>Completion DT</th>
-                        <th>Status</th>
-                        <th>View Log</th>
-                    </tr>
-                </thead>
-                <tbody id="console-table-body">
-                    <!-- Command rows will be added here -->
-                </tbody>
-            </table>
+            <!-- Control Tab Content -->
+            <div id="control-console" class="console-tab-content">
+                <table class="console-table" id="console-table">
+                    <thead>
+                        <tr>
+                            <th>Start</th>
+                            <th>Agent</th>
+                            <th>Command</th>
+                            <th>Completion DT</th>
+                            <th>Status</th>
+                            <th>View Log</th>
+                        </tr>
+                    </thead>
+                    <tbody id="console-table-body">
+                        <!-- Command rows will be added here -->
+                    </tbody>
+                </table>
+            </div>
+            <!-- Chat Tab Content -->
+            <div id="chat-console" class="console-tab-content active">
+                <table class="console-table" id="chat-console-table">
+                    <thead>
+                        <tr>
+                            <th>Start</th>
+                            <th>Tab</th>
+                            <th>Action</th>
+                            <th>Details</th>
+                            <th>Status</th>
+                            <th>View Log</th>
+                        </tr>
+                    </thead>
+                    <tbody id="chat-console-table-body">
+                        <!-- Chat action rows will be added here -->
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
     
@@ -1390,7 +1668,7 @@
         <div class="status-segment">
             <span>Hub v<span id="hub-version">2.0.9</span></span>
         </div>
-        <div class="console-toggle" onclick="toggleConsole()">
+        <div class="console-toggle" onclick="window.performControlAction('toggleConsole')">
             <span>Console</span>
             <span class="console-arrow" id="console-arrow">▲</span>
         </div>
@@ -1404,7 +1682,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Chat History</h2>
-                <button class="modal-close" onclick="closeHistoryModal()">×</button>
+                <button class="modal-close" onclick="window.performControlAction('closeHistoryModal')">×</button>
             </div>
             <div class="modal-body" id="history-list">
                 <!-- History items will be populated here -->
@@ -1417,25 +1695,1992 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2 id="summary-title">Operation Summary</h2>
-                <button class="modal-close" onclick="closeSummaryModal()">×</button>
+                <button class="modal-close" onclick="window.performControlAction('closeSummaryModal')">×</button>
             </div>
             <div class="modal-body" id="summary-content">
                 <!-- Summary content will be populated here -->
             </div>
             <div class="modal-footer" style="text-align: center; padding: 15px; border-top: 1px solid var(--border-color);">
-                <button class="btn btn-primary" onclick="closeSummaryModal()">OK</button>
+                <button class="btn btn-primary" onclick="window.performControlAction('closeSummaryModal')">OK</button>
             </div>
         </div>
     </div>
     
     <script>
         // Single source of truth for version
-        const HUB_VERSION = '2.1.89';
+        const HUB_VERSION = '2.1.64';
         
-        // Update page title with version
-        document.title = `Infrastructure AI Hub (v${HUB_VERSION})`;
+        // Tab identification system - generates new ID on every refresh
+        const TAB_ID = `tab_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        // Update page title with version and tab ID
+        document.title = `Infrastructure AI Hub [${TAB_ID}] (v${HUB_VERSION})`;
+        
+        // In-memory storage for chat actions (cleared on refresh like control logs)
+        let chatActions = [];
+        
+        // Track active task correlationIds per tab (for parent-child relationships)
+        const activeTaskCorrelations = new Map();
+        
+        // In-memory storage for hub GUI logs (cleared on refresh)
+        let hubGuiLogs = [];
+        
+        // Hub GUI Logging System
+        const hubGuiLog = {
+            log: function(worker, correlationId, action, description, error = null) {
+                const entry = {
+                    worker,
+                    correlationId,
+                    datetime: new Date().toISOString(),
+                    action,
+                    description,
+                    error
+                };
+                hubGuiLogs.push(entry);
+                
+                // Keep last 1000 entries
+                if (hubGuiLogs.length > 1000) {
+                    hubGuiLogs.shift();
+                }
+                console.log(`[GUI-LOG] ${action}:`, description, entry);
+            },
+            
+            getLogs: function(filter = {}) {
+                let filtered = [...hubGuiLogs];
+                
+                if (filter.worker) {
+                    filtered = filtered.filter(l => l.worker === filter.worker);
+                }
+                if (filter.correlationId) {
+                    filtered = filtered.filter(l => l.correlationId === filter.correlationId);
+                }
+                if (filter.action) {
+                    filtered = filtered.filter(l => l.action === filter.action);
+                }
+                if (filter.from) {
+                    filtered = filtered.filter(l => new Date(l.datetime) >= new Date(filter.from));
+                }
+                if (filter.to) {
+                    filtered = filtered.filter(l => new Date(l.datetime) <= new Date(filter.to));
+                }
+                if (filter.last) {
+                    filtered = filtered.slice(-filter.last);
+                }
+                
+                return filtered;
+            },
+            
+            clear: function() {
+                sessionStorage.removeItem('hubGuiLogs');
+                console.log('[GUI-LOG] Logs cleared');
+            }
+        };
+        
+        // Browser Request Handler - Processes requests from the hub API
+        class BrowserRequestHandler {
+            constructor() {
+                this.handlers = new Map();
+                this.registerHandlers();
+                this.lastCheck = 0;
+                this.checkInterval = 250; // Check every 250ms for responsive RPC
+                
+                // Start checking for requests
+                this.startRequestPolling();
+            }
+            
+            registerHandlers() {
+                // Generic action handler - routes ALL actions through performAction
+                this.handlers.set('performControlAction', async (params) => {
+                    if (!params.action) {
+                        throw new Error('action parameter is required');
+                    }
+                    // Mark as RPC call for delay handling
+                    window.actionRouter.isRpcCall = true;
+                    try {
+                        return await window.performControlAction(params.action, params.params || {});
+                    } finally {
+                        window.actionRouter.isRpcCall = false;
+                    }
+                });
+                
+                this.handlers.set('performChatAction', async (params) => {
+                    if (!params.action) {
+                        throw new Error('action parameter is required');
+                    }
+                    // Mark as RPC call for delay handling
+                    const wasRpcCall = window.actionRouter.isRpcCall;
+                    window.actionRouter.isRpcCall = true;
+                    try {
+                        return await window.performChatAction(params.action, params.params || {});
+                    } finally {
+                        // Only reset if we set it (don't interfere with nested calls)
+                        if (!wasRpcCall) {
+                            window.actionRouter.isRpcCall = false;
+                        }
+                    }
+                });
+                
+                // Data request handlers
+                this.handlers.set('getLogs', async (params) => {
+                    return hubGuiLog.getLogs(params);
+                });
+                
+                this.handlers.set('getInterleavedLogs', async (params) => {
+                    if (!params.correlationId) {
+                        throw new Error('correlationId is required');
+                    }
+                    
+                    // Get UI logs for this correlationId
+                    const uiLogs = hubGuiLog.getLogs({ correlationId: params.correlationId });
+                    
+                    // Get backend logs via existing endpoint
+                    try {
+                        const response = await fetch(`${API_BASE}/executions/${params.correlationId}/logs`);
+                        const backendLogs = await response.json();
+                        
+                        // Merge and sort by timestamp
+                        const allLogs = [...uiLogs, ...backendLogs];
+                        allLogs.sort((a, b) => new Date(a.datetime || a.timestamp).getTime() - new Date(b.datetime || b.timestamp).getTime());
+                        
+                        return allLogs;
+                    } catch (error) {
+                        // If backend logs fail, return just UI logs
+                        return uiLogs;
+                    }
+                });
+                
+                this.handlers.set('getState', async (params) => {
+                    const agents = Array.from(document.querySelectorAll('.agent-card')).map(card => {
+                        const agentIndicator = card.querySelector('.agent-indicator');
+                        const managerIndicator = card.querySelector('.manager-indicator');
+                        return {
+                            name: card.dataset.agent,
+                            agentOnline: agentIndicator ? agentIndicator.classList.contains('online') : false,
+                            managerOnline: managerIndicator ? managerIndicator.classList.contains('online') : false
+                        };
+                    });
+                    
+                    const commands = getStoredCommands();
+                    const consolePanel = document.getElementById('console-panel');
+                    
+                    return {
+                        tabId: TAB_ID,
+                        url: window.location.href,
+                        agents: agents,
+                        consoleVisible: consolePanel ? consolePanel.classList.contains('open') : false,
+                        pendingCommands: commands.filter(c => c.status === 'pending').length,
+                        totalCommands: commands.length,
+                        activeTab: activeTabId,
+                        timestamp: new Date().toISOString()
+                    };
+                });
+                
+                this.handlers.set('getConsoleEntries', async (params) => {
+                    const commands = getStoredCommands();
+                    return params.last ? commands.slice(-params.last) : commands;
+                });
+                
+                this.handlers.set('getChatLogs', async (params) => {
+                    // Directly call the action to get the chat logs
+                    // Don't use performControlAction as it returns async status
+                    const action = window.actionRouter.actions.get('getChatLogs');
+                    if (action) {
+                        return await action(params);
+                    }
+                    return { success: false, error: 'getChatLogs action not found' };
+                });
+                
+                this.handlers.set('getTabs', async (params) => {
+                    // Forward to performChatAction to get tab information
+                    window.actionRouter.isRpcCall = true;
+                    try {
+                        return await window.performChatAction('getTabs', params);
+                    } finally {
+                        window.actionRouter.isRpcCall = false;
+                    }
+                });
+                
+                this.handlers.set('getActiveTab', async (params) => {
+                    // Forward to performChatAction to get active tab information
+                    window.actionRouter.isRpcCall = true;
+                    try {
+                        return await window.performChatAction('getActiveTab', params);
+                    } finally {
+                        window.actionRouter.isRpcCall = false;
+                    }
+                });
+                
+                this.handlers.set('setActiveTab', async (params) => {
+                    // Forward to performChatAction to set active tab
+                    window.actionRouter.isRpcCall = true;
+                    try {
+                        return await window.performChatAction('setActiveTab', params);
+                    } finally {
+                        window.actionRouter.isRpcCall = false;
+                    }
+                });
+                
+                // New chat-related RPC handlers
+                this.handlers.set('newChat', async (params) => {
+                    // Don't reset isRpcCall here - let performChatAction handle it
+                    // so that child actions also get the RPC delay
+                    return await window.performChatAction('newChat', params);
+                });
+                
+                this.handlers.set('setTaskDescription', async (params) => {
+                    window.actionRouter.isRpcCall = true;
+                    try {
+                        return await window.performChatAction('setTaskDescription', params);
+                    } finally {
+                        window.actionRouter.isRpcCall = false;
+                    }
+                });
+                
+                this.handlers.set('setTitle', async (params) => {
+                    window.actionRouter.isRpcCall = true;
+                    try {
+                        return await window.performChatAction('setTitle', params);
+                    } finally {
+                        window.actionRouter.isRpcCall = false;
+                    }
+                });
+                
+                this.handlers.set('startTask', async (params) => {
+                    window.actionRouter.isRpcCall = true;
+                    try {
+                        return await window.performChatAction('startTask', params);
+                    } finally {
+                        window.actionRouter.isRpcCall = false;
+                    }
+                });
+                
+                this.handlers.set('startAgentChat', async (params) => {
+                    window.actionRouter.isRpcCall = true;
+                    try {
+                        return await window.performChatAction('startAgentChat', params);
+                    } finally {
+                        window.actionRouter.isRpcCall = false;
+                    }
+                });
+                
+                this.handlers.set('getFailedCommands', async (params) => {
+                    const commands = getStoredCommands();
+                    const failed = commands.filter(c => c.status === 'failed' || c.status === 'timeout');
+                    return params.last ? failed.slice(-params.last) : failed;
+                });
+                
+                // Control command handlers
+                this.handlers.set('startAgent', async (params) => {
+                    if (!params.agent) {
+                        throw new Error('agent parameter is required');
+                    }
+                    
+                    const button = document.querySelector(`[data-agent="${params.agent}"] .action-button.start-agent`);
+                    if (button && !button.disabled) {
+                        window.lastCorrelationId = null; // Reset before click
+                        button.click();
+                        // Wait a bit for the correlationId to be set
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                        return { 
+                            success: true, 
+                            agent: params.agent, 
+                            action: 'startAgent',
+                            correlationId: window.lastCorrelationId
+                        };
+                    }
+                    return { success: false, error: 'Start button not found or disabled' };
+                });
+                
+                this.handlers.set('stopAgent', async (params) => {
+                    if (!params.agent) {
+                        throw new Error('agent parameter is required');
+                    }
+                    
+                    const button = document.querySelector(`[data-agent="${params.agent}"] .action-button.stop-agent`);
+                    if (button && !button.disabled) {
+                        window.lastCorrelationId = null; // Reset before click
+                        button.click();
+                        // Wait a bit for the correlationId to be set
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                        return { 
+                            success: true, 
+                            agent: params.agent, 
+                            action: 'stopAgent',
+                            correlationId: window.lastCorrelationId
+                        };
+                    }
+                    return { success: false, error: 'Stop button not found or disabled' };
+                });
+                
+                this.handlers.set('startManager', async (params) => {
+                    if (!params.agent) {
+                        throw new Error('agent parameter is required');
+                    }
+                    
+                    const button = document.querySelector(`[data-agent="${params.agent}"] .action-button.start-manager`);
+                    if (button && !button.disabled) {
+                        window.lastCorrelationId = null; // Reset before click
+                        button.click();
+                        // Wait a bit for the correlationId to be set
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                        return { 
+                            success: true, 
+                            agent: params.agent, 
+                            action: 'startManager',
+                            correlationId: window.lastCorrelationId
+                        };
+                    }
+                    return { success: false, error: 'Start manager button not found or disabled' };
+                });
+                
+                this.handlers.set('stopManager', async (params) => {
+                    if (!params.agent) {
+                        throw new Error('agent parameter is required');
+                    }
+                    
+                    const button = document.querySelector(`[data-agent="${params.agent}"] .action-button.stop-manager`);
+                    if (button && !button.disabled) {
+                        window.lastCorrelationId = null; // Reset before click
+                        button.click();
+                        // Wait a bit for the correlationId to be set
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                        return { 
+                            success: true, 
+                            agent: params.agent, 
+                            action: 'stopManager',
+                            correlationId: window.lastCorrelationId
+                        };
+                    }
+                    return { success: false, error: 'Stop manager button not found or disabled' };
+                });
+                
+                this.handlers.set('clearConsole', async (params) => {
+                    clearConsoleContent();
+                    return { success: true, action: 'clearConsole' };
+                });
+                
+                this.handlers.set('clearLogs', async (params) => {
+                    hubGuiLog.clear();
+                    return { success: true, action: 'clearLogs' };
+                });
+                
+                this.handlers.set('retryCommand', async (params) => {
+                    if (!params.commandId) {
+                        throw new Error('commandId is required');
+                    }
+                    
+                    const commands = getStoredCommands();
+                    const command = commands.find(c => c.id === params.commandId || c.correlationId === params.commandId);
+                    
+                    if (command) {
+                        // Find the agent card and trigger the same action
+                        const actionMap = {
+                            'start-agent': '.action-button.start-agent',
+                            'stop-agent': '.action-button.stop-agent',
+                            'start-manager': '.action-button.start-manager',
+                            'stop-manager': '.action-button.stop-manager'
+                        };
+                        
+                        const selector = actionMap[command.command];
+                        if (selector && command.agent) {
+                            const button = document.querySelector(`[data-agent="${command.agent}"] ${selector}`);
+                            if (button && !button.disabled) {
+                                button.click();
+                                return { success: true, retriedCommand: command.command, agent: command.agent };
+                            }
+                        }
+                    }
+                    
+                    return { success: false, error: 'Command not found or cannot be retried' };
+                });
+                
+                // Hamburger menu commands
+                this.handlers.set('startAllAgents', async (params) => {
+                    if (typeof window.startAllAgents === 'function') {
+                        window.startAllAgents();
+                        return { success: true, action: 'startAllAgents' };
+                    }
+                    return { success: false, error: 'startAllAgents function not found' };
+                });
+                
+                this.handlers.set('stopAllAgents', async (params) => {
+                    if (typeof window.stopAllAgents === 'function') {
+                        window.stopAllAgents();
+                        return { success: true, action: 'stopAllAgents' };
+                    }
+                    return { success: false, error: 'stopAllAgents function not found' };
+                });
+                
+                this.handlers.set('startAllManagers', async (params) => {
+                    if (typeof window.startAllManagers === 'function') {
+                        window.startAllManagers();
+                        return { success: true, action: 'startAllManagers' };
+                    }
+                    return { success: false, error: 'startAllManagers function not found' };
+                });
+                
+                this.handlers.set('stopAllManagers', async (params) => {
+                    if (typeof window.stopAllManagers === 'function') {
+                        window.stopAllManagers();
+                        return { success: true, action: 'stopAllManagers' };
+                    }
+                    return { success: false, error: 'stopAllManagers function not found' };
+                });
+                
+                // Generic action handler for any menu item
+                this.handlers.set('clickMenuItem', async (params) => {
+                    if (!params.item) {
+                        throw new Error('item parameter is required');
+                    }
+                    
+                    // Map of menu items to their functions
+                    const menuMap = {
+                        'start-all-agents': window.startAllAgents,
+                        'stop-all-agents': window.stopAllAgents,
+                        'start-all-managers': window.startAllManagers,
+                        'stop-all-managers': window.stopAllManagers
+                    };
+                    
+                    const func = menuMap[params.item];
+                    if (func && typeof func === 'function') {
+                        func();
+                        return { success: true, action: params.item };
+                    }
+                    
+                    return { success: false, error: `Unknown menu item: ${params.item}` };
+                });
+                
+                // Wait for command completion
+                this.handlers.set('waitForCommand', async (params) => {
+                    if (!params.correlationId) {
+                        throw new Error('correlationId is required');
+                    }
+                    
+                    const timeout = params.timeout || 30000; // Default 30s timeout
+                    const startTime = Date.now();
+                    
+                    // Check if command is already complete
+                    const commands = getStoredCommands();
+                    let command = commands.find(c => c.correlationId === params.correlationId);
+                    
+                    if (command && ['success', 'failed', 'timeout', 'timeoutSuccess'].includes(command.status)) {
+                        return {
+                            completed: true,
+                            status: command.status,
+                            duration: command.endTime ? command.endTime - command.startTime : null,
+                            command: command
+                        };
+                    }
+                    
+                    // Wait for completion
+                    while (Date.now() - startTime < timeout) {
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                        
+                        const updatedCommands = getStoredCommands();
+                        command = updatedCommands.find(c => c.correlationId === params.correlationId);
+                        
+                        if (command && ['success', 'failed', 'timeout', 'timeoutSuccess'].includes(command.status)) {
+                            return {
+                                completed: true,
+                                status: command.status,
+                                duration: command.endTime ? command.endTime - command.startTime : null,
+                                command: command
+                            };
+                        }
+                    }
+                    
+                    return {
+                        completed: false,
+                        error: 'Timeout waiting for command completion',
+                        command: command
+                    };
+                });
+                
+                // Get command status
+                this.handlers.set('getCommandStatus', async (params) => {
+                    if (!params.correlationId) {
+                        throw new Error('correlationId is required');
+                    }
+                    
+                    const commands = getStoredCommands();
+                    const command = commands.find(c => c.correlationId === params.correlationId);
+                    
+                    if (!command) {
+                        return { found: false, error: 'Command not found' };
+                    }
+                    
+                    return {
+                        found: true,
+                        status: command.status,
+                        completed: ['success', 'failed', 'timeout', 'timeoutSuccess'].includes(command.status),
+                        command: command
+                    };
+                });
+                
+                // Refresh the browser
+                this.handlers.set('refreshBrowser', async (params) => {
+                    const delay = params.delay || 1000; // Default 1 second delay
+                    
+                    // Log that we're about to refresh
+                    hubGuiLog.log(null, null, 'browser-refresh', `Browser refresh requested, will refresh in ${delay}ms`);
+                    
+                    // Store the fact that we're refreshing so it can be detected
+                    sessionStorage.setItem('refreshRequested', JSON.stringify({
+                        timestamp: new Date().toISOString(),
+                        tabId: TAB_ID
+                    }));
+                    
+                    // Schedule the refresh
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, delay);
+                    
+                    return { 
+                        success: true, 
+                        message: `Browser will refresh in ${delay}ms`,
+                        tabId: TAB_ID
+                    };
+                });
+            }
+            
+            async checkForRequests() {
+                // Don't check too frequently
+                const now = Date.now();
+                if (now - this.lastCheck < 1000) return;
+                this.lastCheck = now;
+                
+                try {
+                    // Check for browser requests
+                    const response = await fetch(`${API_BASE}/browser-requests/pending/${TAB_ID}`);
+                    const { requests } = await response.json();
+                    
+                    for (const request of requests) {
+                        console.log(`[BrowserRequest] Processing request ${request.id}: ${request.action}`);
+                        await this.processRequest(request);
+                    }
+                    
+                    // Check for queued commands
+                    await this.checkForQueuedCommands();
+                } catch (error) {
+                    console.error('[BrowserRequest] Failed to check for requests:', error);
+                }
+            }
+            
+            async checkForQueuedCommands() {
+                try {
+                    const response = await fetch(`${API_BASE}/commands/pending`);
+                    const { commands } = await response.json();
+                    
+                    for (const command of commands) {
+                        console.log(`[CommandQueue] Processing queued command ${command.id}: ${command.operation} on ${command.agent}`);
+                        await this.executeQueuedCommand(command);
+                    }
+                } catch (error) {
+                    console.error('[CommandQueue] Failed to check for commands:', error);
+                }
+            }
+            
+            async executeQueuedCommand(command) {
+                try {
+                    // Mark as processing
+                    await fetch(`${API_BASE}/commands/${command.id}/processing`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({})
+                    });
+                    
+                    // Find the agent
+                    const agents = window.agentsData || [];
+                    const agent = agents.find(a => a.name === command.agent);
+                    
+                    if (!agent) {
+                        throw new Error(`Agent ${command.agent} not found`);
+                    }
+                    
+                    // Execute the operation using the action router
+                    // This will include addConsoleCommand() so it appears in the console
+                    if (window.performAction) {
+                        // Store the command ID for completion tracking
+                        window.currentQueuedCommandId = command.id;
+                        
+                        // Use the action router
+                        const result = await window.performControlAction(command.operation, { agent: command.agent });
+                        
+                        if (!result.success) {
+                            throw new Error(result.error);
+                        }
+                        
+                        // Mark as completed
+                        await fetch(`${API_BASE}/commands/${command.id}/complete`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ 
+                                result: 'Command initiated',
+                                correlationId: window.lastCorrelationId 
+                            })
+                        });
+                    } else {
+                        throw new Error('Context menu handler not available');
+                    }
+                } catch (error) {
+                    console.error(`[CommandQueue] Failed to execute command ${command.id}:`, error);
+                    
+                    // Mark as failed
+                    try {
+                        await fetch(`${API_BASE}/commands/${command.id}/fail`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ error: error.message })
+                        });
+                    } catch (failError) {
+                        console.error('[CommandQueue] Failed to mark command as failed:', failError);
+                    }
+                }
+            }
+            
+            async processRequest(request) {
+                const handler = this.handlers.get(request.action);
+                
+                if (!handler) {
+                    await this.sendResponse(request.id, null, `Unknown action: ${request.action}`);
+                    return;
+                }
+                
+                try {
+                    const result = await handler(request.params);
+                    await this.sendResponse(request.id, result);
+                } catch (error) {
+                    await this.sendResponse(request.id, null, error.message);
+                }
+            }
+            
+            async sendResponse(requestId, response, error) {
+                try {
+                    await fetch(`${API_BASE}/browser-requests/${requestId}/response`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ response, error })
+                    });
+                } catch (err) {
+                    console.error(`[BrowserRequest] Failed to send response for ${requestId}:`, err);
+                }
+            }
+            
+            startRequestPolling() {
+                // Check during EventSource messages
+                if (typeof listenForExecutionUpdates !== 'undefined') {
+                    const originalHandler = window.executionEventSource?.onmessage;
+                    if (originalHandler) {
+                        window.executionEventSource.onmessage = (event) => {
+                            originalHandler(event);
+                            this.checkForRequests();
+                        };
+                    }
+                }
+                
+                // Also check periodically
+                setInterval(() => {
+                    this.checkForRequests();
+                }, this.checkInterval);
+                
+                // Check during agent polling
+                const originalLoadAgents = window.loadAgents;
+                if (originalLoadAgents) {
+                    window.loadAgents = async () => {
+                        await originalLoadAgents();
+                        this.checkForRequests();
+                    };
+                }
+            }
+        }
+        
+        // Initialize browser request handler
+        const browserRequestHandler = new BrowserRequestHandler();
+        
+        // Universal Action Router - ALL UI actions go through here
+        class ActionRouter {
+            constructor() {
+                this.actions = new Map();
+                this.rpcDelay = 500; // Default 500ms delay between RPC actions
+                this.isRpcCall = false; // Track if current action is from RPC
+                this.registerActions();
+                window.performControlAction = this.performControlAction.bind(this);
+                window.performChatAction = this.performChatAction.bind(this);
+            }
+            
+            registerActions() {
+                // Agent context menu actions
+                this.actions.set('startAgent', async (params) => {
+                    if (!params.agent) throw new Error('agent parameter required');
+                    const agent = this.findAgent(params.agent);
+                    await window.executeAgentOperation(agent, 'start');
+                });
+                
+                this.actions.set('stopAgent', async (params) => {
+                    if (!params.agent) throw new Error('agent parameter required');
+                    const agent = this.findAgent(params.agent);
+                    await window.executeAgentOperation(agent, 'stop');
+                });
+                
+                this.actions.set('restartAgent', async (params) => {
+                    if (!params.agent) throw new Error('agent parameter required');
+                    const agent = this.findAgent(params.agent);
+                    await window.executeAgentOperation(agent, 'restart');
+                });
+                
+                this.actions.set('startManager', async (params) => {
+                    if (!params.agent) throw new Error('agent parameter required');
+                    const agent = this.findAgent(params.agent);
+                    await window.executeAgentOperation(agent, 'start-manager');
+                });
+                
+                this.actions.set('stopManager', async (params) => {
+                    if (!params.agent) throw new Error('agent parameter required');
+                    const agent = this.findAgent(params.agent);
+                    await window.executeAgentOperation(agent, 'stop-manager');
+                });
+                
+                this.actions.set('restartManager', async (params) => {
+                    if (!params.agent) throw new Error('agent parameter required');
+                    const agent = this.findAgent(params.agent);
+                    await window.executeAgentOperation(agent, 'restart-manager');
+                });
+                
+                this.actions.set('reboot', async (params) => {
+                    if (!params.agent) throw new Error('agent parameter required');
+                    const agent = this.findAgent(params.agent);
+                    await window.executeAgentOperation(agent, 'reboot');
+                });
+                
+                this.actions.set('ssh', async (params) => {
+                    if (!params.agent) throw new Error('agent parameter required');
+                    const agent = this.findAgent(params.agent);
+                    // SSH URL - opens default SSH client
+                    const sshUrl = `ssh://root@${agent.ip || agent.name}`;
+                    window.open(sshUrl, '_blank');
+                    return { opened: true, url: sshUrl };
+                });
+                
+                // Hamburger menu actions
+                this.actions.set('startAllAgents', async () => {
+                    if (window.startAllAgents) window.startAllAgents();
+                });
+                
+                this.actions.set('stopAllAgents', async () => {
+                    if (window.stopAllAgents) window.stopAllAgents();
+                });
+                
+                this.actions.set('startAllManagers', async () => {
+                    if (window.startAllManagers) window.startAllManagers();
+                });
+                
+                this.actions.set('stopAllManagers', async () => {
+                    if (window.stopAllManagers) window.stopAllManagers();
+                });
+                
+                // Button actions
+                this.actions.set('clickButton', async (params) => {
+                    if (!params.selector) throw new Error('selector parameter required');
+                    const button = document.querySelector(params.selector);
+                    if (button && !button.disabled) {
+                        button.click();
+                    } else {
+                        throw new Error('Button not found or disabled');
+                    }
+                });
+                
+                // Tab actions
+                this.actions.set('switchTab', async (params) => {
+                    if (!params.tabId) throw new Error('tabId parameter required');
+                    if (typeof switchTab === 'function') {
+                        switchTab(params.tabId);
+                        return { switched: true, tabId: params.tabId };
+                    } else {
+                        throw new Error('switchTab function not found');
+                    }
+                });
+                
+                // Chat actions
+                this.actions.set('sendChat', async (params) => {
+                    if (!params.message) throw new Error('message parameter required');
+                    const input = document.getElementById('task-input');
+                    const sendButton = document.querySelector('.send-button');
+                    if (input && sendButton) {
+                        input.value = params.message;
+                        sendButton.click();
+                    } else {
+                        throw new Error('Chat input or send button not found');
+                    }
+                });
+                
+                this.actions.set('sendChatMessage', async (params) => {
+                    if (!params.message) throw new Error('message parameter required');
+                    const input = document.getElementById('task-input');
+                    const sendButton = document.querySelector('.send-button');
+                    if (input && sendButton) {
+                        input.value = params.message;
+                        sendButton.click();
+                        return { success: true, message: 'Chat message sent' };
+                    } else {
+                        throw new Error('Chat input or send button not found');
+                    }
+                });
+                
+                this.actions.set('sendMessage', async (params) => {
+                    if (!params.tabId) throw new Error('tabId parameter required');
+                    if (typeof sendMessage === 'function') {
+                        sendMessage(params.tabId);
+                        return { sent: true };
+                    } else {
+                        throw new Error('sendMessage function not found');
+                    }
+                });
+                
+                // Console actions
+                this.actions.set('toggleConsole', async () => {
+                    if (typeof toggleConsole === 'function') {
+                        toggleConsole();
+                        return { toggled: true };
+                    } else {
+                        throw new Error('toggleConsole function not found');
+                    }
+                });
+                
+                this.actions.set('retryCommand', async (params) => {
+                    if (!params.correlationId) throw new Error('correlationId parameter required');
+                    const retryButton = document.querySelector(`[data-correlation-id="${params.correlationId}"] .retry-button`);
+                    if (retryButton) {
+                        retryButton.click();
+                    } else {
+                        throw new Error('Retry button not found');
+                    }
+                });
+                
+                // View actions
+                this.actions.set('viewLogs', async (params) => {
+                    if (!params.correlationId) throw new Error('correlationId parameter required');
+                    if (window.viewLogs) {
+                        // Use agent from params if provided, otherwise find from command
+                        const agent = params.agent || this.findCommand(params.correlationId)?.agent;
+                        if (agent) {
+                            await window.viewLogs(params.correlationId, agent);
+                            return { viewing: true };
+                        } else {
+                            throw new Error('Agent not found for correlation ID');
+                        }
+                    } else {
+                        throw new Error('viewLogs function not found');
+                    }
+                });
+                
+                this.actions.set('getChatLogs', async (params) => {
+                    // Get all chat logs, optionally filtered
+                    const allLogs = this.getChatActions();
+                    let filteredLogs = allLogs;
+                    
+                    // Apply filters if provided
+                    if (params.action) {
+                        filteredLogs = filteredLogs.filter(log => log.action === params.action);
+                    }
+                    if (params.status) {
+                        filteredLogs = filteredLogs.filter(log => log.status === params.status);
+                    }
+                    if (params.limit) {
+                        filteredLogs = filteredLogs.slice(0, params.limit);
+                    }
+                    
+                    return {
+                        success: true,
+                        count: filteredLogs.length,
+                        logs: filteredLogs
+                    };
+                });
+                
+                // RPC delay management actions
+                this.actions.set('getRpcDelay', async (params) => {
+                    return {
+                        success: true,
+                        delay: this.rpcDelay,
+                        unit: 'milliseconds',
+                        description: `Current RPC UI delay is ${this.rpcDelay}ms`
+                    };
+                });
+                this.actions.get('getRpcDelay').logging = false;
+                
+                this.actions.set('setRpcDelay', async (params) => {
+                    if (params.delay === undefined) {
+                        throw new Error('delay parameter required (in milliseconds)');
+                    }
+                    
+                    const oldDelay = this.rpcDelay;
+                    this.rpcDelay = parseInt(params.delay);
+                    
+                    // Store in localStorage for persistence
+                    localStorage.setItem('rpcUiDelay', this.rpcDelay.toString());
+                    
+                    return {
+                        success: true,
+                        oldDelay: oldDelay,
+                        newDelay: this.rpcDelay,
+                        description: `RPC UI delay changed from ${oldDelay}ms to ${this.rpcDelay}ms`
+                    };
+                });
+                this.actions.get('setRpcDelay').logging = true;
+                
+                this.actions.set('getTabs', async (params) => {
+                    const tabInfo = [];
+                    
+                    // Get all open tabs
+                    tabs.forEach((tabData, tabId) => {
+                        const messageCount = tabData.messages ? tabData.messages.length : 0;
+                        const userMessages = tabData.messages ? tabData.messages.filter(m => m.role === 'user').length : 0;
+                        const agentMessages = messageCount - userMessages;
+                        
+                        tabInfo.push({
+                            id: tabId,
+                            title: tabData.title,
+                            created: tabData.created,
+                            isActive: tabId === activeTabId,
+                            messageCount: messageCount,
+                            userMessages: userMessages,
+                            agentMessages: agentMessages,
+                            // Include agent info if this is an agent-specific chat
+                            agent: activeTabAgents[tabId] ? activeTabAgents[tabId][0] : null
+                        });
+                    });
+                    
+                    // Sort by creation time (newest first)
+                    tabInfo.sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime());
+                    
+                    return {
+                        success: true,
+                        activeTabId: activeTabId,
+                        tabCount: tabInfo.length,
+                        tabs: tabInfo
+                    };
+                });
+                
+                this.actions.set('getActiveTab', async (params) => {
+                    // Check if we're on the "new" tab
+                    if (activeTabId === 'new') {
+                        return {
+                            success: true,
+                            isNewTab: true,
+                            id: 'new',
+                            title: 'New Task',
+                            type: 'new-task-form'
+                        };
+                    }
+                    
+                    // Get the active tab data
+                    const tabData = tabs.get(activeTabId);
+                    if (!tabData) {
+                        return {
+                            success: false,
+                            error: 'Active tab not found'
+                        };
+                    }
+                    
+                    // Get message details
+                    const messages = tabData.messages || [];
+                    const userMessages = messages.filter(m => m.role === 'user').length;
+                    const agentMessages = messages.length - userMessages;
+                    
+                    const includeMessages = params.includeMessages !== false; // Default to true
+                    
+                    const result = {
+                        success: true,
+                        isNewTab: false,
+                        id: activeTabId,
+                        title: tabData.title,
+                        created: tabData.created,
+                        messageCount: messages.length,
+                        userMessages: userMessages,
+                        agentMessages: agentMessages,
+                        agent: activeTabAgents[activeTabId] ? activeTabAgents[activeTabId][0] : null,
+                        // Include last message preview (fixed to use correct properties)
+                        lastMessage: messages.length > 0 ? {
+                            content: messages[messages.length - 1].content.substring(0, 100),
+                            role: messages[messages.length - 1].role,
+                            timestamp: messages[messages.length - 1].timestamp
+                        } : null
+                    };
+                    
+                    // Include full conversation if requested (default true)
+                    if (includeMessages) {
+                        result.messages = messages.map(msg => ({
+                            role: msg.role,
+                            content: msg.content,
+                            timestamp: msg.timestamp,
+                            agentInfo: msg.agentInfo
+                        }));
+                    }
+                    
+                    return result;
+                });
+                
+                this.actions.set('setActiveTab', async (params) => {
+                    if (!params.tabId) throw new Error('tabId parameter required');
+                    
+                    // Check if the tab exists (including the special 'new' tab)
+                    if (params.tabId !== 'new' && !tabs.has(params.tabId)) {
+                        return {
+                            success: false,
+                            error: `Tab '${params.tabId}' not found`
+                        };
+                    }
+                    
+                    // Get the previous active tab for the response
+                    const previousTabId = activeTabId;
+                    
+                    // Use the existing switchTab function which handles all the UI updates
+                    if (typeof switchTab === 'function') {
+                        switchTab(params.tabId);
+                    } else {
+                        throw new Error('switchTab function not found');
+                    }
+                    
+                    return {
+                        success: true,
+                        previousTabId: previousTabId,
+                        activeTabId: params.tabId,
+                        tabTitle: params.tabId === 'new' ? 'New Task' : tabs.get(params.tabId).title
+                    };
+                });
+                this.actions.get('setActiveTab').logging = false;
+                
+                this.actions.set('viewChatActionLog', async (params) => {
+                    if (!params.guid) throw new Error('guid parameter required');
+                    
+                    const action = this.getChatActionStatus(params.guid);
+                    if (!action) {
+                        alert('Chat action not found');
+                        return { found: false };
+                    }
+                    
+                    // Create a simple modal to show action details
+                    const modal = document.createElement('div');
+                    modal.className = 'history-modal';
+                    modal.style.display = 'block';
+                    
+                    const resultJson = action.result ? JSON.stringify(action.result, null, 2) : 'No result';
+                    const paramsJson = JSON.stringify(action.params, null, 2);
+                    
+                    modal.innerHTML = `
+                        <div class="history-modal-content" style="max-width: 800px;">
+                            <div class="history-modal-header">
+                                <h3>Chat Action Log: ${action.action}</h3>
+                                <span class="history-modal-close" onclick="this.closest('.history-modal').remove()">&times;</span>
+                            </div>
+                            <div class="history-modal-body" style="max-height: 600px; overflow-y: auto;">
+                                <div style="margin-bottom: 20px;">
+                                    <strong>GUID:</strong> ${action.guid}<br>
+                                    <strong>Action:</strong> ${action.action}<br>
+                                    <strong>Tab:</strong> ${action.tabTitle}<br>
+                                    <strong>Status:</strong> <span class="${action.status === 'success' ? 'status-completed' : action.status === 'error' ? 'status-failed' : 'status-polling'}">${action.status}</span><br>
+                                    <strong>Duration:</strong> ${action.duration ? `${action.duration}ms` : 'N/A'}<br>
+                                    <strong>Start Time:</strong> ${new Date(action.startTime).toLocaleString()}
+                                </div>
+                                
+                                <h4>Parameters:</h4>
+                                <pre style="background: var(--bg-secondary); padding: 10px; border-radius: 4px; overflow-x: auto;">${paramsJson}</pre>
+                                
+                                ${action.error ? `
+                                <h4>Error:</h4>
+                                <pre style="background: #3e2828; padding: 10px; border-radius: 4px; color: #ff6b6b;">${action.error}</pre>
+                                ` : ''}
+                                
+                                <h4>Result:</h4>
+                                <pre style="background: var(--bg-secondary); padding: 10px; border-radius: 4px; overflow-x: auto;">${resultJson}</pre>
+                            </div>
+                        </div>
+                    `;
+                    
+                    document.body.appendChild(modal);
+                    return { opened: true };
+                });
+                
+                this.actions.set('getLogsForCorrelation', async (params) => {
+                    if (!params.correlationId) throw new Error('correlationId parameter required');
+                    
+                    // Get both UI and backend logs for a correlation ID
+                    const uiLogs = hubGuiLog.getLogs({ correlationId: params.correlationId });
+                    
+                    // Get execution data from stored commands
+                    const commands = getStoredCommands ? getStoredCommands() : [];
+                    const command = commands.find(cmd => cmd.correlationId === params.correlationId);
+                    
+                    // Format logs in a readable way
+                    const allLogs = [];
+                    
+                    // Add UI logs
+                    uiLogs.forEach(log => {
+                        allLogs.push({
+                            timestamp: log.datetime,
+                            type: 'UI',
+                            action: log.action,
+                            message: log.description,
+                            worker: log.worker
+                        });
+                    });
+                    
+                    // Add command execution info if available
+                    if (command) {
+                        allLogs.push({
+                            timestamp: command.startTime,
+                            type: 'EXEC',
+                            action: 'commandStart',
+                            message: `${command.command} on ${command.agent}`,
+                            worker: command.agent
+                        });
+                        
+                        if (command.completedTime) {
+                            allLogs.push({
+                                timestamp: command.completedTime,
+                                type: 'EXEC',
+                                action: 'commandComplete',
+                                message: `Status: ${command.status}, Duration: ${command.duration}`,
+                                worker: command.agent
+                            });
+                        }
+                    }
+                    
+                    // Sort by timestamp
+                    allLogs.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+                    
+                    return { logs: allLogs, correlationId: params.correlationId };
+                });
+                
+                // Settings/menu actions
+                this.actions.set('openHamburgerMenu', async () => {
+                    const hamburger = document.querySelector('.hamburger-menu');
+                    if (hamburger) {
+                        hamburger.click();
+                    }
+                });
+                
+                this.actions.set('openSettings', async () => {
+                    const settingsButton = document.querySelector('.settings-icon');
+                    if (settingsButton) {
+                        settingsButton.click();
+                    }
+                });
+                
+                // Console management
+                this.actions.set('clearConsole', async () => {
+                    if (typeof clearConsoleContent === 'function') {
+                        clearConsoleContent();
+                        return { cleared: true };
+                    } else {
+                        throw new Error('clearConsoleContent function not found');
+                    }
+                });
+                
+                this.actions.set('switchConsoleTab', async (params) => {
+                    if (!params.tab) throw new Error('tab parameter required');
+                    
+                    const validTabs = ['control', 'chat'];
+                    if (!validTabs.includes(params.tab)) {
+                        throw new Error(`Invalid tab: ${params.tab}. Must be 'control' or 'chat'`);
+                    }
+                    
+                    // Update tab buttons
+                    document.querySelectorAll('.console-tab').forEach(tab => {
+                        tab.classList.remove('active');
+                    });
+                    document.getElementById(`${params.tab}-tab`).classList.add('active');
+                    
+                    // Update tab content
+                    document.querySelectorAll('.console-tab-content').forEach(content => {
+                        content.classList.remove('active');
+                        content.style.display = 'none';
+                    });
+                    const targetContent = document.getElementById(`${params.tab}-console`);
+                    if (targetContent) {
+                        targetContent.classList.add('active');
+                        targetContent.style.display = 'block';
+                    }
+                    
+                    // Store active tab
+                    window.activeConsoleTab = params.tab;
+                    localStorage.setItem('activeConsoleTab', params.tab);
+                    
+                    return { tab: params.tab };
+                });
+                
+                // Browser management
+                this.actions.set('refreshBrowser', async (params) => {
+                    const delay = params.delay || 1000;
+                    
+                    // Log that we're about to refresh
+                    console.log('[ActionRouter] Browser refresh requested, will refresh in', delay, 'ms');
+                    if (typeof hubGuiLog !== 'undefined') {
+                        hubGuiLog.log(null, null, 'browser-refresh', `Browser refresh requested, will refresh in ${delay}ms`);
+                    }
+                    
+                    // Store refresh info
+                    sessionStorage.setItem('refreshRequested', JSON.stringify({
+                        timestamp: new Date().toISOString(),
+                        tabId: window.TAB_ID || 'unknown'
+                    }));
+                    
+                    // Force immediate reload if delay is 0
+                    if (delay === 0) {
+                        console.log('[ActionRouter] Executing browser refresh NOW (immediate)');
+                        window.location.reload(true);
+                        return { success: true, message: 'Browser refreshing immediately' };
+                    }
+                    
+                    // Schedule the refresh
+                    console.log('[ActionRouter] Scheduling browser refresh in', delay, 'ms');
+                    setTimeout(() => {
+                        console.log('[ActionRouter] Executing browser refresh NOW');
+                        window.location.reload(true); // Force reload from server
+                    }, delay);
+                    
+                    return { 
+                        success: true, 
+                        message: `Browser will refresh in ${delay}ms`
+                    };
+                });
+                
+                // Modal actions
+                this.actions.set('closeHistoryModal', async () => {
+                    if (typeof closeHistoryModal === 'function') {
+                        closeHistoryModal();
+                        return { closed: true };
+                    }
+                });
+                
+                this.actions.set('closeSummaryModal', async () => {
+                    if (typeof closeSummaryModal === 'function') {
+                        closeSummaryModal();
+                        return { closed: true };
+                    }
+                });
+                
+                // Markdown and error handling actions
+                this.actions.set('switchMarkdownTab', async (params) => {
+                    if (!params.messageId || !params.tab) throw new Error('messageId and tab parameters required');
+                    if (typeof switchMarkdownTab === 'function') {
+                        switchMarkdownTab(params.messageId, params.tab);
+                        return { switched: true };
+                    } else {
+                        throw new Error('switchMarkdownTab function not found');
+                    }
+                });
+                
+                this.actions.set('toggleErrorDetails', async (params) => {
+                    if (!params.messageId) throw new Error('messageId parameter required');
+                    if (typeof toggleErrorDetails === 'function') {
+                        toggleErrorDetails(params.messageId);
+                        return { toggled: true };
+                    } else {
+                        throw new Error('toggleErrorDetails function not found');
+                    }
+                });
+                
+                // Permission actions
+                this.actions.set('proceedWithPermission', async (params) => {
+                    if (!params.tabId || !params.agentId || !params.encodedPermissionText) {
+                        throw new Error('tabId, agentId, and encodedPermissionText parameters required');
+                    }
+                    if (typeof proceedWithPermission === 'function') {
+                        await proceedWithPermission(params.tabId, params.agentId, params.encodedPermissionText);
+                        return { proceeded: true };
+                    } else {
+                        throw new Error('proceedWithPermission function not found');
+                    }
+                });
+                
+                this.actions.set('denyPermission', async (params) => {
+                    if (!params.tabId || !params.agentId) {
+                        throw new Error('tabId and agentId parameters required');
+                    }
+                    if (typeof denyPermission === 'function') {
+                        denyPermission(params.tabId, params.agentId);
+                        return { denied: true };
+                    } else {
+                        throw new Error('denyPermission function not found');
+                    }
+                });
+                
+                // Chat actions with logging configuration
+                
+                // Non-logging actions (UI manipulation)
+                this.actions.set('setTaskDescription', async (params) => {
+                    if (!params.value) throw new Error('value parameter required');
+                    const element = document.getElementById('task-command');
+                    if (!element) throw new Error('Task description field not found');
+                    element.value = params.value;
+                    element.dispatchEvent(new Event('input', { bubbles: true }));
+                    element.dispatchEvent(new Event('change', { bubbles: true }));
+                    return { set: true, value: params.value };
+                });
+                this.actions.get('setTaskDescription').logging = false;
+                
+                this.actions.set('setTitle', async (params) => {
+                    if (!params.value) throw new Error('value parameter required');
+                    const element = document.getElementById('task-title');
+                    if (!element) throw new Error('Title field not found');
+                    element.value = params.value;
+                    element.dataset.userModified = 'true';
+                    element.dispatchEvent(new Event('input', { bubbles: true }));
+                    element.dispatchEvent(new Event('change', { bubbles: true }));
+                    return { set: true, value: params.value };
+                });
+                this.actions.get('setTitle').logging = false;
+                
+                // Logging actions (meaningful operations)
+                this.actions.set('startTask', async (params) => {
+                    // Get the form values (they should be passed in params now)
+                    const title = params.tabTitle || '';
+                    const command = params.initialPrompt || '';
+                    
+                    // Fallback to reading from form if not in params
+                    const titleField = document.getElementById('task-title');
+                    const commandField = document.getElementById('task-command');
+                    
+                    const finalTitle = title || (titleField ? titleField.value.trim() : '');
+                    const finalCommand = command || (commandField ? commandField.value.trim() : '');
+                    
+                    if (!finalTitle || !finalCommand) throw new Error('Title and description are required')
+                    
+                    // Do exactly what startNewTask() does:
+                    // 1. Create new tab
+                    const tabId = createTab(finalTitle);
+                    
+                    // 2. Store the parent correlationId for this tab's task
+                    // This will be used to link all subsequent actions as children
+                    const parentCorrelationId = params.correlationId; // Set by performChatAction
+                    if (parentCorrelationId) {
+                        activeTaskCorrelations.set(tabId, parentCorrelationId);
+                        
+                        // Update the already-stored chat action with the correct tab info
+                        window.actionRouter.updateChatAction(parentCorrelationId, {
+                            tabId: tabId,
+                            tabTitle: finalTitle
+                        });
+                    }
+                    
+                    // 3. Clear form if it exists
+                    if (titleField) {
+                        titleField.value = '';
+                        titleField.dataset.userModified = 'false';
+                    }
+                    if (commandField) {
+                        commandField.value = '';
+                    }
+                    
+                    // 4. Send initial message (which will use the parent correlation)
+                    sendMessage(tabId, finalCommand);
+                    
+                    // Return but DON'T mark as complete - leave it pending
+                    // The parent action status will be updated when the AI task completes
+                    return { 
+                        success: true, 
+                        tabId: tabId,
+                        title: finalTitle,
+                        initialPrompt: finalCommand,
+                        pending: true  // Signal that this task continues running
+                    };
+                });
+                this.actions.get('startTask').logging = true;
+                
+                // Non-logging orchestration action
+                this.actions.set('newChat', async (params) => {
+                    if (!params.initialPrompt || !params.initialPrompt.trim()) {
+                        throw new Error('initialPrompt parameter required');
+                    }
+                    
+                    const correlationId = params.correlationId || this.generateGuid();
+                    
+                    // Switch to new tab (non-logging)
+                    await this.actions.get('setActiveTab')({ 
+                        tabId: 'new',
+                        correlationId: correlationId
+                    });
+                    
+                    // Fill fields (non-logging)
+                    await this.actions.get('setTaskDescription')({ 
+                        value: params.initialPrompt,
+                        correlationId: correlationId
+                    });
+                    
+                    if (params.title) {
+                        await this.actions.get('setTitle')({ 
+                            value: params.title,
+                            correlationId: correlationId
+                        });
+                    }
+                    
+                    // Click Start Task (THIS starts logging as root)
+                    // Pass the title and prompt so startTask has them
+                    const titleField = document.getElementById('task-title');
+                    const commandField = document.getElementById('task-command');
+                    const title = titleField ? titleField.value.trim() : (params.title || 'New Task');
+                    const command = commandField ? commandField.value.trim() : params.initialPrompt;
+                    
+                    return await this.actions.get('startTask')({
+                        correlationId: correlationId,
+                        tabTitle: title,
+                        initialPrompt: command
+                    });
+                });
+                this.actions.get('newChat').logging = false;
+                
+                this.actions.set('startAgentChat', async (params) => {
+                    if (!params.agentName) throw new Error('agentName parameter required');
+                    if (typeof startNewChat === 'function') {
+                        startNewChat(params.agentName);
+                        return { started: true, agent: params.agentName };
+                    } else {
+                        throw new Error('startNewChat function not found');
+                    }
+                });
+                this.actions.get('startAgentChat').logging = true;
+                
+                // Keep the old one for backwards compatibility but mark as deprecated
+                this.actions.set('startNewChat', async (params) => {
+                    console.warn('startNewChat is deprecated, use startAgentChat instead');
+                    return await this.actions.get('startAgentChat')(params);
+                });
+                this.actions.get('startNewChat').logging = false;
+                
+                this.actions.set('reopenChatFromLog', async (params) => {
+                    if (!params.filePath) throw new Error('filePath parameter required');
+                    if (typeof reopenChatFromLog === 'function') {
+                        await reopenChatFromLog(params.filePath);
+                        return { reopened: true };
+                    } else {
+                        throw new Error('reopenChatFromLog function not found');
+                    }
+                });
+                
+                // Generic dialog/modal close actions
+                this.actions.set('closeDialog', async (params) => {
+                    if (!params.element) throw new Error('element parameter required');
+                    const overlay = params.element.closest('.dialog-overlay');
+                    if (overlay) {
+                        overlay.remove();
+                        return { closed: true };
+                    } else {
+                        throw new Error('Dialog overlay not found');
+                    }
+                });
+                
+                this.actions.set('closeModal', async (params) => {
+                    if (!params.element) throw new Error('element parameter required');
+                    const modal = params.element.closest('.modal');
+                    if (modal) {
+                        modal.remove();
+                        return { closed: true };
+                    } else {
+                        throw new Error('Modal not found');
+                    }
+                });
+                
+                // Tab management
+                this.actions.set('closeTab', async (params) => {
+                    if (!params.tabId) throw new Error('tabId parameter required');
+                    if (typeof closeTab === 'function') {
+                        closeTab(params.tabId);
+                        return { closed: true };
+                    }
+                });
+                
+                // Quick actions for chat
+                this.actions.set('quickAction', async (params) => {
+                    if (!params.action || !params.tabId) throw new Error('action and tabId parameters required');
+                    if (typeof quickAction === 'function') {
+                        quickAction(params.action, params.tabId);
+                        return { executed: true };
+                    }
+                });
+                
+                // Copy message content
+                this.actions.set('copyMessage', async (params) => {
+                    if (!params.messageId) throw new Error('messageId parameter required');
+                    if (typeof copyMessageContent === 'function') {
+                        copyMessageContent(params.messageId);
+                        return { copied: true };
+                    }
+                });
+                
+                // Command confirmation
+                this.actions.set('confirmCommand', async (params) => {
+                    if (!params.tabId || !params.request) throw new Error('tabId and request parameters required');
+                    if (typeof confirmCommand === 'function') {
+                        confirmCommand(params.tabId, params.request);
+                        return { confirmed: true };
+                    }
+                });
+                
+                this.actions.set('cancelCommand', async (params) => {
+                    if (!params.tabId) throw new Error('tabId parameter required');
+                    if (typeof cancelCommand === 'function') {
+                        cancelCommand(params.tabId);
+                        return { cancelled: true };
+                    }
+                });
+                
+                // UI Control Actions for Testing and Automation
+                this.actions.set('setValue', async (params) => {
+                    if (!params.selector || params.value === undefined) {
+                        throw new Error('selector and value parameters required');
+                    }
+                    const element = document.querySelector(params.selector);
+                    if (!element) {
+                        throw new Error(`Element not found: ${params.selector}`);
+                    }
+                    if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
+                        element.value = params.value;
+                        // Trigger input event for any listeners
+                        element.dispatchEvent(new Event('input', { bubbles: true }));
+                        element.dispatchEvent(new Event('change', { bubbles: true }));
+                        return { 
+                            set: true, 
+                            selector: params.selector, 
+                            value: params.value,
+                            element: element.tagName.toLowerCase()
+                        };
+                    } else if (element.tagName === 'SELECT') {
+                        element.value = params.value;
+                        element.dispatchEvent(new Event('change', { bubbles: true }));
+                        return { 
+                            set: true, 
+                            selector: params.selector, 
+                            value: params.value,
+                            element: 'select'
+                        };
+                    } else {
+                        throw new Error(`Cannot set value on ${element.tagName} element`);
+                    }
+                });
+                
+                this.actions.set('getValue', async (params) => {
+                    if (!params.selector) throw new Error('selector parameter required');
+                    const element = document.querySelector(params.selector);
+                    if (!element) {
+                        throw new Error(`Element not found: ${params.selector}`);
+                    }
+                    if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' || element.tagName === 'SELECT') {
+                        return { 
+                            value: element.value,
+                            selector: params.selector,
+                            element: element.tagName.toLowerCase()
+                        };
+                    } else {
+                        return {
+                            text: element.textContent,
+                            html: element.innerHTML,
+                            selector: params.selector,
+                            element: element.tagName.toLowerCase()
+                        };
+                    }
+                });
+                
+                this.actions.set('click', async (params) => {
+                    if (!params.selector) throw new Error('selector parameter required');
+                    const element = document.querySelector(params.selector);
+                    if (!element) {
+                        throw new Error(`Element not found: ${params.selector}`);
+                    }
+                    element.click();
+                    return { 
+                        clicked: true, 
+                        selector: params.selector,
+                        element: element.tagName.toLowerCase(),
+                        text: element.textContent || element.value || ''
+                    };
+                });
+                
+                this.actions.set('submitForm', async (params) => {
+                    if (!params.selector) throw new Error('selector parameter required');
+                    const form = document.querySelector(params.selector);
+                    if (!form) {
+                        throw new Error(`Form not found: ${params.selector}`);
+                    }
+                    if (form.tagName !== 'FORM') {
+                        throw new Error(`Element is not a form: ${form.tagName}`);
+                    }
+                    // Check if form has submit button
+                    const submitButton = form.querySelector('[type="submit"], button:not([type="button"])');
+                    if (submitButton) {
+                        submitButton.click();
+                    } else {
+                        form.submit();
+                    }
+                    return { 
+                        submitted: true, 
+                        selector: params.selector,
+                        action: form.action || 'none',
+                        method: form.method || 'get'
+                    };
+                });
+                
+                this.actions.set('getElements', async (params) => {
+                    if (!params.selector) throw new Error('selector parameter required');
+                    const elements = document.querySelectorAll(params.selector);
+                    const results = [];
+                    elements.forEach((el, index) => {
+                        results.push({
+                            index: index,
+                            tag: el.tagName.toLowerCase(),
+                            id: el.id || null,
+                            class: el.className || null,
+                            text: el.textContent?.substring(0, 100) || '',
+                            value: (el.value !== undefined) ? el.value : null,
+                            href: el.href || null,
+                            visible: el.offsetParent !== null
+                        });
+                    });
+                    return { 
+                        count: elements.length,
+                        selector: params.selector,
+                        elements: results
+                    };
+                });
+                
+                this.actions.set('waitForElement', async (params) => {
+                    if (!params.selector) throw new Error('selector parameter required');
+                    const timeout = params.timeout || 5000;
+                    const interval = params.interval || 100;
+                    const startTime = Date.now();
+                    
+                    return new Promise((resolve, reject) => {
+                        const checkElement = () => {
+                            const element = document.querySelector(params.selector);
+                            if (element) {
+                                resolve({
+                                    found: true,
+                                    selector: params.selector,
+                                    waitTime: Date.now() - startTime,
+                                    element: element.tagName.toLowerCase()
+                                });
+                            } else if (Date.now() - startTime > timeout) {
+                                reject(new Error(`Timeout waiting for element: ${params.selector}`));
+                            } else {
+                                setTimeout(checkElement, interval);
+                            }
+                        };
+                        checkElement();
+                    });
+                });
+                
+                this.actions.set('screenshotElement', async (params) => {
+                    if (!params.selector) throw new Error('selector parameter required');
+                    const element = document.querySelector(params.selector);
+                    if (!element) {
+                        throw new Error(`Element not found: ${params.selector}`);
+                    }
+                    const rect = element.getBoundingClientRect();
+                    return {
+                        selector: params.selector,
+                        dimensions: {
+                            x: rect.x,
+                            y: rect.y,
+                            width: rect.width,
+                            height: rect.height,
+                            top: rect.top,
+                            left: rect.left
+                        },
+                        visible: rect.width > 0 && rect.height > 0
+                    };
+                });
+                
+                this.actions.set('refresh', async (params) => {
+                    window.location.reload();
+                    return { refreshing: true };
+                });
+            }
+            
+            findAgent(agentName) {
+                const agents = window.agentsData || [];
+                const agent = agents.find(a => a.name === agentName);
+                if (!agent) {
+                    throw new Error(`Agent ${agentName} not found`);
+                }
+                return agent;
+            }
+            
+            findCommand(correlationId) {
+                const commands = getStoredCommands();
+                return commands.find(c => c.correlationId === correlationId);
+            }
+            
+            generateGuid() {
+                return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                    const r = Math.random() * 16 | 0;
+                    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+                    return v.toString(16);
+                });
+            }
+            
+            async performControlAction(action, params = {}) {
+                const startTime = Date.now();
+                const guid = params.guid || this.generateGuid();
+                const mode = params.mode || 'async'; // 'async' or 'waitFor'
+                const timeout = params.timeout || 30000; // 30 seconds default
+                
+                // Apply RPC delay if this is an RPC call (not from UI)
+                if (this.isRpcCall && this.rpcDelay > 0) {
+                    console.log(`[RPC Delay] Waiting ${this.rpcDelay}ms before action: ${action}`);
+                    await new Promise(resolve => setTimeout(resolve, this.rpcDelay));
+                }
+                
+                // Get current tab info (use params.tabTitle if provided for new tabs)
+                const activeTab = tabs.get(activeTabId);
+                const tabTitle = params.tabTitle || (activeTab ? activeTab.title : 'Unknown');
+                
+                // Create chat action entry
+                // Clean up params by removing internal properties
+                const cleanParams = { ...params };
+                delete cleanParams.guid;
+                delete cleanParams.mode;
+                delete cleanParams.timeout;
+                
+                const chatAction = {
+                    guid,
+                    action,
+                    params: cleanParams,
+                    status: 'pending',
+                    startTime,
+                    tabId: activeTabId,
+                    tabTitle,
+                    result: null,
+                    error: null,
+                    duration: null
+                };
+                
+                // Control actions should not be stored in chat log
+                // Only chat-specific actions go to chat log
+                
+                console.log(`[ActionRouter] Performing action: ${action} (${mode} mode, guid: ${guid})`, params);
+                
+                const handler = this.actions.get(action);
+                if (!handler) {
+                    const error = `Unknown action: ${action}`;
+                    this.updateChatAction(guid, { status: 'error', error, duration: Date.now() - startTime });
+                    if (mode === 'waitFor') {
+                        throw new Error(error);
+                    }
+                    return { success: false, guid, error };
+                }
+                
+                if (mode === 'async') {
+                    // Async mode - execute in background and return immediately
+                    this.executeActionAsync(guid, action, handler, params, startTime);
+                    return { success: true, guid, status: 'pending' };
+                } else {
+                    // WaitFor mode - wait for completion
+                    try {
+                        const result = await Promise.race([
+                            handler(params),
+                            new Promise((_, reject) => 
+                                setTimeout(() => reject(new Error('Action timeout')), timeout)
+                            )
+                        ]);
+                        
+                        const duration = Date.now() - startTime;
+                        this.updateChatAction(guid, { 
+                            status: 'success', 
+                            result, 
+                            duration 
+                        });
+                        
+                        console.log(`[ActionRouter] Action ${action} completed successfully in ${duration}ms`);
+                        return { success: true, guid, result, duration };
+                    } catch (error) {
+                        const duration = Date.now() - startTime;
+                        this.updateChatAction(guid, { 
+                            status: 'error', 
+                            error: error.message, 
+                            duration 
+                        });
+                        
+                        console.error(`[ActionRouter] Action ${action} failed:`, error);
+                        return { success: false, guid, error: error.message, duration };
+                    }
+                }
+            }
+            
+            async executeActionAsync(guid, action, handler, params, startTime) {
+                try {
+                    const result = await handler(params);
+                    const duration = Date.now() - startTime;
+                    this.updateChatAction(guid, { 
+                        status: 'success', 
+                        result, 
+                        duration 
+                    });
+                    console.log(`[ActionRouter] Action ${action} completed successfully in ${duration}ms (async)`);
+                } catch (error) {
+                    const duration = Date.now() - startTime;
+                    this.updateChatAction(guid, { 
+                        status: 'error', 
+                        error: error.message, 
+                        duration 
+                    });
+                    console.error(`[ActionRouter] Action ${action} failed (async):`, error);
+                }
+            }
+            
+            async performChatAction(action, params = {}) {
+                const startTime = Date.now();
+                
+                // Apply RPC delay if this is an RPC call (not from UI)
+                // Apply delay to EVERY action when isRpcCall is true
+                if (this.isRpcCall && this.rpcDelay > 0 && action !== 'getRpcDelay') {
+                    console.log(`[RPC Delay] Waiting ${this.rpcDelay}ms before action: ${action}`);
+                    await new Promise(resolve => setTimeout(resolve, this.rpcDelay));
+                }
+                
+                // Handle correlationID flow
+                let correlationId = params.correlationId;
+                const handler = this.actions.get(action);
+                
+                if (!handler) {
+                    // If no action handler, just log it
+                    return { success: true, logged: true };
+                }
+                
+                // Check if this action should start logging
+                const shouldLog = handler.logging === true;
+                const isNewRoot = shouldLog && !correlationId;
+                
+                // Generate correlationId if this is a new root logging action
+                if (isNewRoot) {
+                    correlationId = this.generateGuid();
+                }
+                
+                // Get current tab info (use params.tabTitle if provided for new tabs)
+                const activeTab = tabs.get(activeTabId);
+                const tabTitle = params.tabTitle || (activeTab ? activeTab.title : 'Unknown');
+                
+                let result = { success: false };
+                let error = null;
+                
+                // Execute the action
+                try {
+                    // Pass correlationId to sub-actions
+                    const actionParams = { ...params, correlationId };
+                    result = await handler(actionParams);
+                    result.success = true;
+                } catch (e) {
+                    error = e.message || String(e);
+                    result = { success: false, error };
+                }
+                
+                // Only log if this action has logging enabled
+                if (shouldLog) {
+                    // Clean up params by removing internal properties
+                    const cleanParams = { ...params };
+                    delete cleanParams.guid;
+                    delete cleanParams.correlationId;
+                    
+                    // Determine status based on result and error presence
+                    let status;
+                    if (action === 'startTask' && result.pending) {
+                        status = 'pending';
+                    } else if (result.error || (result.success === false && result.error)) {
+                        status = 'error';
+                    } else if (result.success) {
+                        status = 'success';
+                    } else {
+                        status = 'error';
+                    }
+                    
+                    const chatAction = {
+                        guid: correlationId,
+                        correlationId: correlationId,
+                        action,
+                        params: cleanParams,
+                        status: status,
+                        startTime,
+                        endTime: status === 'pending' ? null : Date.now(),
+                        tabId: activeTabId,
+                        tabTitle,
+                        isRoot: isNewRoot,
+                        parentId: isNewRoot ? null : params.correlationId,
+                        details: params.details || null,
+                        result: result.success ? result : undefined,
+                        error: error
+                    };
+                    
+                    // Store in chat log
+                    this.storeChatAction(chatAction);
+                    
+                    console.log(`[ActionRouter] Chat action ${result.success ? 'executed' : 'failed'}: ${action} (${isNewRoot ? 'ROOT' : 'SUB'})`, params);
+                } else {
+                    // Non-logging action, just pass through
+                    console.log(`[ActionRouter] Non-logging action executed: ${action}`, params);
+                }
+                
+                return { ...result, correlationId };
+            }
+            
+            storeChatAction(chatAction) {
+                chatActions.push(chatAction);
+                if (typeof renderChatConsole === 'function') {
+                    renderChatConsole();
+                }
+            }
+            
+            updateChatAction(guid, updates) {
+                const index = chatActions.findIndex(a => a.guid === guid);
+                if (index !== -1) {
+                    chatActions[index] = { ...chatActions[index], ...updates };
+                    if (typeof renderChatConsole === 'function') {
+                        renderChatConsole();
+                    }
+                }
+            }
+            
+            getChatActions() {
+                return [...chatActions];
+            }
+            
+            getChatActionStatus(guid) {
+                const action = chatActions.find(a => a.guid === guid);
+                return action || null;
+            }
+        }
+        
+        // Initialize action router
+        const actionRouter = new ActionRouter();
+        window.actionRouter = actionRouter; // Make globally accessible for RPC
+        
+        // Load saved RPC delay from localStorage
+        const savedDelay = localStorage.getItem('rpcUiDelay');
+        if (savedDelay) {
+            actionRouter.rpcDelay = parseInt(savedDelay);
+            console.log(`[RPC] Loaded saved UI delay: ${actionRouter.rpcDelay}ms`);
+        }
         
         console.log(`CACHE BUST: Loading v${HUB_VERSION} - Fixed: Console updates only from worker callbacks at`, new Date().toISOString());
+        console.log(`[TAB] Tab ID: ${TAB_ID}`);
+        console.log(`[BrowserRequest] Handler initialized`);
+        
+        // Check if this is a refresh that was requested
+        const refreshRequested = sessionStorage.getItem('refreshRequested');
+        if (refreshRequested) {
+            try {
+                const refreshData = JSON.parse(refreshRequested);
+                const timeSinceRequest = Date.now() - new Date(refreshData.timestamp).getTime();
+                if (timeSinceRequest < 60000) { // Within last minute
+                    hubGuiLog.log(null, null, 'browser-refreshed', 
+                        `Browser refreshed as requested ${timeSinceRequest}ms ago (from tab ${refreshData.tabId})`);
+                }
+            } catch (e) {
+                console.error('Error parsing refresh request data:', e);
+            }
+            sessionStorage.removeItem('refreshRequested');
+        }
+        
+        // Log hub startup
+        hubGuiLog.log(null, null, 'hub-startup', `Hub UI loaded, version ${HUB_VERSION}, tab ${TAB_ID}`);
+        
         const API_BASE = window.location.origin + '/api';
         let selectedAgents = [];
         let activeTabId = 'new';
@@ -1443,6 +3688,16 @@
         let activeTabAgents = {}; // tabId -> [agentName] mapping for chat tabs
         let chatHistory = []; // Persistent storage of all chats
         let activeChats = {}; // tabId -> chatId mapping for logging
+        
+        // Clear all tab data on page load (fresh start for each browser instance)
+        function clearAllTabs() {
+            tabs.clear();
+            activeTabAgents = {};
+            activeChats = {};
+            // Keep chatHistory for persistence but clear active tabs
+            hubGuiLog.log(null, null, 'tabs-cleared', 'All tabs cleared on browser refresh');
+        }
+        let previousAgentStates = new Map(); // Track previous agent states for change detection
         const MAX_TABS = 5;
         
         // Helper function for safe JSON parsing with detailed error logging
@@ -1486,6 +3741,10 @@
         function createTab(title, initialMessage, customTabId = null) {
             const tabId = customTabId || generateTabId();
             
+            // Log tab creation
+            hubGuiLog.log(null, null, 'tab-created', 
+                `User created new tab: ${title} (${tabId})`);
+            
             // Check if we need to close oldest tab
             if (tabs.size >= MAX_TABS) {
                 const oldestTab = Array.from(tabs.keys())[0];
@@ -1506,7 +3765,7 @@
             newTab.dataset.tabId = tabId;
             newTab.innerHTML = `
                 <span class="tab-title">${title}</span>
-                <span class="tab-close" onclick="event.stopPropagation(); closeTab('${tabId}')">×</span>
+                <span class="tab-close" onclick="event.stopPropagation(); window.performControlAction('closeTab', {tabId: '${tabId}'})">×</span>
             `;
             newTab.onclick = () => switchTab(tabId);
             
@@ -1522,9 +3781,9 @@
                 <div class="chat-messages" id="messages-${tabId}"></div>
                 <div class="chat-input-container">
                     <div class="quick-actions">
-                        <div class="quick-action" onclick="quickAction('Check status', '${tabId}')">Check status</div>
-                        <div class="quick-action" onclick="quickAction('Show logs', '${tabId}')">Show logs</div>
-                        <div class="quick-action" onclick="quickAction('List services', '${tabId}')">List services</div>
+                        <div class="quick-action" onclick="window.performControlAction('quickAction', {action: 'Check status', tabId: '${tabId}'})">Check status</div>
+                        <div class="quick-action" onclick="window.performControlAction('quickAction', {action: 'Show logs', tabId: '${tabId}'})">Show logs</div>
+                        <div class="quick-action" onclick="window.performControlAction('quickAction', {action: 'List services', tabId: '${tabId}'})">List services</div>
                     </div>
                     <div class="input-wrapper">
                         <textarea 
@@ -1534,7 +3793,7 @@
                             rows="1"
                             onkeydown="handleInputKeydown(event, '${tabId}')"
                         ></textarea>
-                        <button class="send-button" onclick="sendMessage('${tabId}')">
+                        <button class="send-button" onclick="window.performControlAction('sendMessage', {tabId: '${tabId}'})">
                             Send →
                         </button>
                     </div>
@@ -1560,6 +3819,11 @@
         }
         
         function switchTab(tabId) {
+            // Log tab switch
+            const tabTitle = tabs.get(tabId)?.title || 'New Task';
+            hubGuiLog.log(null, null, 'tab-switch', 
+                `User switched to tab: ${tabTitle} (${tabId})`);
+            
             // Update active tab state
             activeTabId = tabId;
             
@@ -1598,6 +3862,11 @@
             
             // Save to history
             const tabData = tabs.get(tabId);
+            
+            // Log tab closure
+            hubGuiLog.log(null, null, 'tab-closed', 
+                `User closed tab: ${tabData.title} (${tabId})`);
+            
             chatHistory.push({
                 id: tabId,
                 title: tabData.title,
@@ -1694,11 +3963,22 @@
                 // Create tabbed view for markdown
                 const rawContent = content;
                 const renderedContent = renderMarkdown(content);
+                
+                // Log markdown debugging info to chat console
+                window.performChatAction('markdownRender', {
+                    details: {
+                        messageId: messageId,
+                        rawLength: rawContent.length,
+                        renderedLength: renderedContent.length,
+                        hasStrayTags: renderedContent.includes('</pre>') && renderedContent.includes('</div>'),
+                        truncatedTable: rawContent.includes('192.168\n\n**Command Output:**')
+                    }
+                });
                 contentHtml = `
                     <div class="markdown-tabs">
                         <div class="tab-buttons">
-                            <button class="tab-btn active" onclick="switchMarkdownTab('${messageId}', 'rendered')">Rendered</button>
-                            <button class="tab-btn" onclick="switchMarkdownTab('${messageId}', 'raw')">Markdown</button>
+                            <button class="tab-btn active" onclick="window.performControlAction('switchMarkdownTab', {messageId: '${messageId}', tab: 'rendered'})">Rendered</button>
+                            <button class="tab-btn" onclick="window.performControlAction('switchMarkdownTab', {messageId: '${messageId}', tab: 'raw'})">Markdown</button>
                         </div>
                         <div class="tab-content rendered" id="rendered-${messageId}">
                             ${renderedContent}
@@ -1717,7 +3997,7 @@
                         ${contentHtml}
                         ${agentInfo ? `<div class="agent-indicator">→ ${agentInfo}</div>` : ''}
                         ${isError && errorDetails ? `
-                            <button class="error-details-btn" onclick="toggleErrorDetails('${messageId}')" title="Show error details">
+                            <button class="error-details-btn" onclick="window.performControlAction('toggleErrorDetails', {messageId: '${messageId}'})" title="Show error details">
                                 <span style="color: #e74c3c;">❓</span>
                             </button>
                             <div class="error-details" id="error-${messageId}" style="display: none;">
@@ -1726,7 +4006,7 @@
                         ` : ''}
                     </div>
                     <div class="message-time">${timestamp}</div>
-                    <button class="copy-btn" onclick="copyMessageContent('${messageId}')" title="Copy message">
+                    <button class="copy-btn" onclick="window.performControlAction('copyMessage', {messageId: '${messageId}'})" title="Copy message">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M8 5H6C5.44772 5 5 5.44772 5 6V20C5 20.5523 5.44772 21 6 21H15C15.5523 21 16 20.5523 16 20V18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                             <path d="M8 5C8 4.44772 8.44772 4 9 4H18C18.5523 4 19 4.44772 19 5V15C19 15.5523 18.5523 16 18 16H9C8.44772 16 8 15.5523 8 15V5Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -1793,6 +4073,33 @@
             // Show typing indicator
             showTypingIndicator(tabId);
             
+            // Check if this tab has an active parent task correlation
+            const parentCorrelationId = activeTaskCorrelations.get(tabId);
+            
+            // Log console command submission (as child if there's a parent)
+            const commandCorrelationId = `chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            hubGuiLog.log(null, commandCorrelationId, 'console-command', 
+                `User submitted command: ${message.substring(0, 100)}${message.length > 100 ? '...' : ''}`);
+            
+            // If there's a parent task, log this as a child action
+            if (parentCorrelationId && window.actionRouter) {
+                const childAction = {
+                    guid: commandCorrelationId,
+                    correlationId: commandCorrelationId,
+                    action: 'sendMessage',
+                    params: { message: message.substring(0, 100) + (message.length > 100 ? '...' : '') },
+                    status: 'success',
+                    startTime: Date.now(),
+                    endTime: Date.now(),
+                    tabId: tabId,
+                    tabTitle: tabs.get(tabId)?.title || 'Unknown',
+                    isRoot: false,
+                    parentId: parentCorrelationId,
+                    isChild: true
+                };
+                window.actionRouter.storeChatAction(childAction);
+            }
+            
             try {
                 // Get conversation history for this tab
                 const tabData = tabs.get(tabId);
@@ -1825,10 +4132,10 @@
                         <p>Action: ${data.interpretation}</p>
                         <p>Target Agents: ${data.targetAgents.join(', ')}</p>
                         <div style="margin-top: 12px;">
-                            <button class="send-button" style="margin-right: 8px;" onclick="confirmCommand('${tabId}', '${data.request}')">
+                            <button class="send-button" style="margin-right: 8px;" onclick="window.performControlAction('confirmCommand', {tabId: '${tabId}', request: '${data.request}'})">
                                 Proceed
                             </button>
-                            <button class="send-button" style="background: var(--bg-tertiary);" onclick="cancelCommand('${tabId}')">
+                            <button class="send-button" style="background: var(--bg-tertiary);" onclick="window.performControlAction('cancelCommand', {tabId: '${tabId}'})">
                                 Cancel
                             </button>
                         </div>
@@ -1922,10 +4229,10 @@
                                             <p>Risk Level: <span class="risk-${risk}" style="color: ${risk === 'critical' ? '#e74c3c' : risk === 'high' ? '#e67e22' : risk === 'medium' ? '#f39c12' : '#27ae60'}; font-weight: bold;">${risk.toUpperCase()}</span></p>
                                             <p>${permissionText}</p>
                                             <div style="margin-top: 12px;">
-                                                <button class="send-button" style="margin-right: 8px;" onclick="proceedWithPermission('${tabId}', '${result.agentId}', '${btoa(permissionText)}')">
+                                                <button class="send-button" style="margin-right: 8px;" onclick="window.performControlAction('proceedWithPermission', {tabId: '${tabId}', agentId: '${result.agentId}', encodedPermissionText: '${btoa(permissionText)}'})">
                                                     Proceed
                                                 </button>
-                                                <button class="send-button" style="background: var(--bg-tertiary);" onclick="denyPermission('${tabId}', '${result.agentId}')">
+                                                <button class="send-button" style="background: var(--bg-tertiary);" onclick="window.performControlAction('denyPermission', {tabId: '${tabId}', agentId: '${result.agentId}'})">
                                                     Cancel
                                                 </button>
                                             </div>
@@ -1994,6 +4301,19 @@
         function hideTypingIndicator(tabId) {
             const indicator = document.getElementById(`typing-${tabId}`);
             if (indicator) indicator.remove();
+            
+            // Check if this tab has an active parent task to complete
+            const parentCorrelationId = activeTaskCorrelations.get(tabId);
+            if (parentCorrelationId && window.actionRouter) {
+                // Update the parent task status to complete
+                window.actionRouter.updateChatAction(parentCorrelationId, {
+                    status: 'success',
+                    endTime: Date.now()
+                });
+                
+                // Clear the active task correlation for this tab
+                activeTaskCorrelations.delete(tabId);
+            }
         }
         
         // Check command results - DEPRECATED: Results are now included in the initial response
@@ -2069,9 +4389,142 @@
             return markdownPatterns.some(pattern => pattern.test(text));
         }
         
-        // Simple markdown renderer
+        // Enhanced markdown renderer using marked.js
         function renderMarkdown(text) {
-            // This is a basic markdown renderer - you might want to use a library like marked.js
+            // Use marked.js for proper markdown rendering with auto-detection
+            if (typeof marked !== 'undefined') {
+                // Configure marked options for better rendering
+                marked.setOptions({
+                    breaks: true, // Convert line breaks to <br>
+                    gfm: true, // GitHub Flavored Markdown
+                    tables: true, // Support tables
+                    sanitize: false, // We'll handle escaping ourselves
+                    smartLists: true, // Better list handling
+                    smartypants: true, // Better typography
+                    highlight: function(code, lang) {
+                        // Disable syntax highlighting to avoid potential HTML issues
+                        // Just escape the code properly
+                        return code.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    }
+                });
+                
+                try {
+                    // Render markdown to HTML
+                    let html = marked.parse(text);
+                    
+                    // Clean up any stray HTML tags that might have been generated
+                    // This is a workaround for potential marked.js issues
+                    html = html.replace(/<\/span><\/span>/g, '</span>');
+                    html = html.replace(/<span><span>/g, '<span>');
+                    
+                    // Fix any stray closing tags at the end
+                    // Remove trailing </pre> and </div> tags that don't have matching opening tags
+                    if (html.includes('</pre>') || html.includes('</div>')) {
+                        console.log('Checking for stray HTML tags in markdown output...');
+                        const last100 = html.slice(-100);
+                        console.log('Last 100 chars:', last100);
+                        
+                        // Check if the HTML ends with these specific patterns
+                        const patterns = [
+                            /<\/pre>\s*<\/div>\s*$/,
+                            /<\/code>\s*<\/pre>\s*<\/pre>\s*<\/div>/,
+                            /<\/pre>\n<\/div>$/
+                        ];
+                        
+                        for (const pattern of patterns) {
+                            if (pattern.test(html)) {
+                                console.log('Found stray closing tags, cleaning up with pattern:', pattern);
+                                html = html.replace(pattern, '');
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // Debug: check what marked.js generated
+                    console.log('Marked.js output length:', html.length);
+                    console.log('Last 200 chars of marked output:', html.slice(-200));
+                    
+                    // Check if the markdown ends with a code block
+                    if (text.trim().endsWith('```')) {
+                        console.log('Markdown ends with code block');
+                        // marked.js sometimes adds extra closing tags after code blocks
+                        // Remove any </pre></div> that appears after the last </code></pre>
+                        const lastCodeBlockEnd = html.lastIndexOf('</code></pre>');
+                        if (lastCodeBlockEnd !== -1) {
+                            const afterCodeBlock = html.substring(lastCodeBlockEnd + 13); // 13 = length of </code></pre>
+                            console.log('Content after last code block:', afterCodeBlock);
+                            if (afterCodeBlock.match(/^\s*<\/pre>\s*<\/div>\s*$/)) {
+                                console.log('Found stray </pre></div> after code block, removing...');
+                                html = html.substring(0, lastCodeBlockEnd + 13);
+                            }
+                        }
+                    }
+                    
+                    // The real issue: marked.js adds </pre></div> when it encounters truncated tables
+                    // Let's search for these tags throughout the HTML, not just at the end
+                    const strayTagMatches = html.match(/<\/pre>\s*<\/div>/g);
+                    if (strayTagMatches) {
+                        console.log(`Found ${strayTagMatches.length} instances of </pre></div> in HTML`);
+                        
+                        // Log to chat console
+                        window.performChatAction('markdown-cleanup', {
+                            details: {
+                                strayTagCount: strayTagMatches.length,
+                                originalHtml: html.slice(-200),
+                                patterns: []
+                            }
+                        });
+                        
+                        // Remove </pre></div> that appears between tables or sections
+                        // This pattern specifically targets the issue we're seeing
+                        html = html.replace(/(<\/table>)\s*<\/pre>\s*<\/div>\s*(<p>|<h[1-6]>|<strong>)/g, '$1\n$2');
+                        
+                        // Also remove </pre></div> that appears after incomplete content
+                        // (like "192.168" followed by these tags)
+                        html = html.replace(/(\d+\.\d+)\s*<\/pre>\s*<\/div>/g, '$1');
+                        
+                        // Remove </pre></div> that appears before "Command Output"
+                        html = html.replace(/<\/pre>\s*<\/div>\s*(<p><strong>Command Output:<\/strong><\/p>)/g, '$1');
+                        
+                        // General cleanup: remove any standalone </pre></div> that doesn't have
+                        // a matching opening tag nearby
+                        let cleaned = html;
+                        let iterations = 0;
+                        while (iterations < 5) { // Limit iterations to prevent infinite loops
+                            const beforeClean = cleaned;
+                            // Look for </pre></div> and check if there's an opening <pre> before it
+                            cleaned = cleaned.replace(/(^|[^>])<\/pre>\s*<\/div>/g, function(match, prefix) {
+                                // Check if there's a <pre> tag in the previous 200 chars
+                                const searchStart = Math.max(0, cleaned.lastIndexOf(match) - 200);
+                                const previousContent = cleaned.substring(searchStart, cleaned.lastIndexOf(match));
+                                if (!previousContent.includes('<pre')) {
+                                    console.log('Removing stray </pre></div> without opening tag');
+                                    return prefix; // Remove the tags
+                                }
+                                return match; // Keep them
+                            });
+                            if (beforeClean === cleaned) break;
+                            iterations++;
+                        }
+                        html = cleaned;
+                    }
+                    
+                    // Debug emoji rendering
+                    if (text.includes('🟢') || text.includes('🔴')) {
+                        console.log('Original text contains emoji:', text.includes('🟢'), text.includes('🔴'));
+                        console.log('HTML contains emoji:', html.includes('🟢'), html.includes('🔴'));
+                        console.log('Sample of HTML:', html.substring(0, 500));
+                    }
+                    
+                    return html;
+                } catch (e) {
+                    console.error('Marked.js parsing error:', e);
+                    // Fall back to basic rendering
+                }
+            }
+            
+            // Fallback to basic rendering if marked.js isn't loaded or fails
+            console.warn('Using basic markdown rendering');
             let html = escapeHtml(text);
             
             // Headers
@@ -2401,6 +4854,9 @@
                 }
                 const data = await response.json();
                 
+                // Store agents globally for command queue
+                window.agentsData = data.agents;
+                
                 const agentsList = document.getElementById('agents-list');
                 agentsList.innerHTML = '';
                 
@@ -2415,6 +4871,57 @@
                 }
                 
                 data.agents.forEach(agent => {
+                    // Check for state changes
+                    const previousState = previousAgentStates.get(agent.name);
+                    const currentState = {
+                        agentOnline: agent.isOnline,
+                        managerOnline: agent.managerVersion && agent.managerVersion !== 'unknown' && agent.managerVersion !== 'offline',
+                        managerVersion: agent.managerVersion || 'unknown'
+                    };
+                    
+                    if (previousState) {
+                        // Check for agent status change
+                        if (previousState.agentOnline !== currentState.agentOnline) {
+                            // Find any recent commands for this agent (pending or success)
+                            const commands = getStoredCommands();
+                            const recentCommand = commands.find(cmd => 
+                                cmd.agent === agent.name && 
+                                (cmd.status === 'pending' || cmd.status === 'success') &&
+                                !cmd.pollLogged // Haven't logged the poll for this command yet
+                            );
+                            
+                            if (recentCommand) {
+                                hubGuiLog.log(agent.name, recentCommand.correlationId, 'poll-detected', 
+                                    `5-second poll detected agent status changed to ${currentState.agentOnline ? 'online' : 'offline'}`);
+                                // Mark that we've logged the poll for this command
+                                recentCommand.pollLogged = true;
+                                updateStoredCommands(commands);
+                            }
+                        }
+                        
+                        // Check for manager status change
+                        if (previousState.managerOnline !== currentState.managerOnline) {
+                            // Find any recent commands for this agent's manager (pending or success)
+                            const commands = getStoredCommands();
+                            const recentCommand = commands.find(cmd => 
+                                cmd.agent === agent.name && 
+                                (cmd.status === 'pending' || cmd.status === 'success') &&
+                                cmd.command.includes('manager') &&
+                                !cmd.pollLogged // Haven't logged the poll for this command yet
+                            );
+                            
+                            if (recentCommand) {
+                                hubGuiLog.log(agent.name, recentCommand.correlationId, 'poll-detected', 
+                                    `5-second poll detected manager status changed to ${currentState.managerOnline ? 'online' : 'offline'}`);
+                                // Mark that we've logged the poll for this command
+                                recentCommand.pollLogged = true;
+                                updateStoredCommands(commands);
+                            }
+                        }
+                    }
+                    
+                    // Store current state for next comparison
+                    previousAgentStates.set(agent.name, currentState);
                     const div = document.createElement('div');
                     div.className = 'agent-item';
                     if (selectedAgents.includes(agent.name)) {
@@ -2470,9 +4977,13 @@
             if (index > -1) {
                 selectedAgents.splice(index, 1);
                 element.classList.remove('selected');
+                hubGuiLog.log(agentId, null, 'agent-deselected', 
+                    `User deselected agent: ${agentId}`);
             } else {
                 selectedAgents.push(agentId);
                 element.classList.add('selected');
+                hubGuiLog.log(agentId, null, 'agent-selected', 
+                    `User selected agent: ${agentId}`);
             }
         }
         
@@ -2531,7 +5042,7 @@
                         </div>
                     </div>
                     
-                    <button class="send-button" onclick="startNewChat('${agent.name}')" style="margin-top: 20px;">
+                    <button class="send-button" onclick="window.performChatAction('startAgentChat', {agentName: '${agent.name}'})" style="margin-top: 20px;">
                         Start New Chat with ${agent.name}
                     </button>
                 </div>
@@ -2564,7 +5075,7 @@
                 
                 return data.chats.map(chat => `
                     <div style="padding: 10px; margin: 5px 0; background: var(--bg-primary); border-radius: 4px; cursor: pointer;"
-                         onclick="reopenChatFromLog('${chat.filePath.replace(/'/g, "\\'")}')">
+                         onclick="window.performControlAction('reopenChatFromLog', {filePath: '${chat.filePath.replace(/'/g, "\\'")}'})}">
                         <strong>${chat.conversation.name}</strong><br>
                         <small style="color: var(--text-secondary);">
                             ${new Date(chat.conversation.updated_at).toLocaleDateString()} ${new Date(chat.conversation.updated_at).toLocaleTimeString()}
@@ -2836,13 +5347,13 @@
             const managerOnline = managerVersion && managerVersion !== 'unknown' && managerVersion !== '';
             
             const operations = [
-                { label: 'Start Agent', action: 'start', disabled: agentOnline },
-                { label: 'Stop Agent', action: 'stop', disabled: !agentOnline },
-                { label: 'Restart Agent', action: 'restart', disabled: !agentOnline },
+                { label: 'Start Agent', action: 'startAgent', disabled: agentOnline },
+                { label: 'Stop Agent', action: 'stopAgent', disabled: !agentOnline },
+                { label: 'Restart Agent', action: 'restartAgent', disabled: !agentOnline },
                 { label: '─────────────', action: 'separator' },
-                { label: 'Start Manager', action: 'start-manager', disabled: managerOnline },
-                { label: 'Stop Manager', action: 'stop-manager', disabled: !managerOnline },
-                { label: 'Restart Manager', action: 'restart-manager', disabled: !managerOnline },
+                { label: 'Start Manager', action: 'startManager', disabled: managerOnline },
+                { label: 'Stop Manager', action: 'stopManager', disabled: !managerOnline },
+                { label: 'Restart Manager', action: 'restartManager', disabled: !managerOnline },
                 { label: '─────────────', action: 'separator' },
                 { label: 'Open SSH', action: 'ssh' },
                 { label: 'Reboot Machine', action: 'reboot' }
@@ -2875,7 +5386,7 @@
                         item.onclick = (e) => {
                             e.stopPropagation();
                             e.preventDefault();
-                            executeAgentOperation(agent, op.action);
+                            window.performControlAction(op.action, {agent: agent.name});
                             menu.remove();
                             overlay.remove();
                         };
@@ -2896,6 +5407,11 @@
                 overlay.remove();
             };
         }
+        
+        // Expose globally for command queue
+        window.executeAgentOperation = executeAgentOperation;
+        window.renderConsoleTable = renderConsoleTable;
+        window.renderChatConsole = renderChatConsole;
         
         async function executeAgentOperation(agent, operation) {
             // Validate agent object
@@ -2923,8 +5439,15 @@
             // Generate correlationId upfront
             const correlationId = `cmd_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
             
+            // Log the user action
+            hubGuiLog.log(agent.name, correlationId, operation, 
+                `User initiated ${operation} operation on ${agent.name}`);
+            
             // Add to console immediately with correlationId
             addConsoleCommand(agent.name, operation, 'pending', correlationId);
+            
+            // Store correlationId globally for button handlers to capture
+            window.lastCorrelationId = correlationId;
             
             try {
                 let endpoint;
@@ -2939,10 +5462,10 @@
                         // Agent lifecycle operations go through hub API
                         endpoint = `${API_BASE}/agents/${agent.name}/${operation}`;
                         break;
-                    case 'start-manager':
+                    case 'startManager':
                         endpoint = `${API_BASE}/managers/${agent.name}/start`;
                         break;
-                    case 'stop-manager':
+                    case 'stopManager':
                         endpoint = `${API_BASE}/managers/${agent.name}/stop`;
                         break;
                     case 'restart-manager':
@@ -3025,7 +5548,7 @@
                                     <li>Use SSH to manually control the agent</li>
                                 </ul>
                             </div>
-                            <button onclick="this.closest('.dialog-overlay').remove()" class="primary-button">OK</button>
+                            <button onclick="window.performControlAction('closeDialog', {element: this})" class="primary-button">OK</button>
                         </div>
                     `;
                     document.body.appendChild(dialog);
@@ -3066,13 +5589,33 @@
                     }
                 }
                 
-                // Only try to restore console table if the functions exist
-                // This prevents errors when browser loads old cached version
-                if (typeof window.renderConsoleTable === 'function') {
-                    window.renderConsoleTable();
+                // Restore active console tab
+                const savedTab = localStorage.getItem('activeConsoleTab') || 'chat';
+                window.activeConsoleTab = savedTab;
+                if (savedTab === 'chat') {
+                    window.performControlAction('switchConsoleTab', { tab: 'chat' });
+                }
+                
+                // Render appropriate console content
+                if (savedTab === 'control') {
+                    if (typeof window.renderConsoleTable === 'function') {
+                        window.renderConsoleTable();
+                    } else {
+                        console.log('Console command tracking not available in this version');
+                    }
                 } else {
-                    console.log('Console command tracking not available in this version');
-                    // Console commands now in-memory only
+                    if (typeof renderChatConsole === 'function') {
+                        renderChatConsole();
+                    }
+                }
+                
+                // Set up periodic refresh for chat console
+                if (savedTab === 'chat') {
+                    setInterval(() => {
+                        if (window.activeConsoleTab === 'chat' && typeof renderChatConsole === 'function') {
+                            renderChatConsole();
+                        }
+                    }, 1000); // Refresh every second to update pending statuses
                 }
                 
                 if (typeof window.restorePolling === 'function') {
@@ -3107,6 +5650,7 @@
             consoleArrow.classList.add('up');
             consoleArrow.textContent = '▼';
             consoleVisible = true;
+            document.body.classList.add('console-visible');
         }
         
         function hideConsole() {
@@ -3117,6 +5661,7 @@
             consoleArrow.classList.remove('up');
             consoleArrow.textContent = '▲';
             consoleVisible = false;
+            document.body.classList.remove('console-visible');
         }
         
         // Console command tracking
@@ -3388,6 +5933,11 @@
             return executionHistory;
         }
         
+        function updateStoredCommands(commands) {
+            // Update the in-memory execution history
+            executionHistory = commands;
+        }
+        
         function sortCommandsForDisplay(commands) {
             // Create a map to group commands by parent
             const commandGroups = new Map();
@@ -3441,8 +5991,6 @@
                     completionDisplay = `${callbackDate.toLocaleTimeString('en-US', { hour12: false })} (${(duration/1000).toFixed(1)}s)`;
                 }
                 
-                // Dot DT removed - redundant with immediate status updates
-                
                 // Determine status display
                 let statusDisplay = '';
                 let statusClass = '';
@@ -3491,7 +6039,7 @@
                 
                 // Log column - always show View link if correlationId exists
                 const logCell = cmd.correlationId ? 
-                    `<td><a href="#" onclick="viewLogs('${cmd.correlationId}', '${cmd.agent}'); return false;" style="color: var(--accent-primary); text-decoration: none;">View</a></td>` : 
+                    `<td><a href="#" onclick="window.performControlAction('viewLogs', {correlationId: '${cmd.correlationId}', agent: '${cmd.agent}'}); return false;" style="color: var(--accent-primary); text-decoration: none;">View</a></td>` : 
                     '<td>-</td>';
                 
                 return `
@@ -3597,18 +6145,158 @@
         }
         
         function clearConsoleContent() {
-            if (confirm('Clear all console entries?')) {
-                executionHistory = []; // Clear in-memory history
-                activeCorrelationIds.clear(); // Clear tracked IDs
-                activePollers.forEach(pollerId => clearInterval(pollerId));
-                activePollers.clear();
-                commandTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
-                commandTimeouts.clear();
-                executionListeners.clear();
-                cleanupEventSource();
-                renderConsoleTable();
-                console.log('[CONSOLE] Cleared all console entries');
+            const activeTab = window.activeConsoleTab || 'chat';
+            const tabName = activeTab === 'control' ? 'control' : 'chat';
+            
+            {
+                hubGuiLog.log(null, null, 'clear-console', 
+                    `User cleared ${tabName} console entries`);
+                
+                if (activeTab === 'control') {
+                    // Clear control tab data
+                    executionHistory = [];
+                    activeCorrelationIds.clear();
+                    activePollers.forEach(pollerId => clearInterval(pollerId));
+                    activePollers.clear();
+                    commandTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
+                    commandTimeouts.clear();
+                    executionListeners.clear();
+                    cleanupEventSource();
+                    renderConsoleTable();
+                } else {
+                    // Clear chat tab data
+                    chatActions = [];
+                    renderChatConsole();
+                }
+                
+                console.log(`[CONSOLE] Cleared all ${tabName} console entries`);
             }
+        }
+        
+        function renderChatConsole() {
+            const chatActions = actionRouter.getChatActions();
+            const tbody = document.getElementById('chat-console-table-body');
+            
+            if (!tbody) return;
+            
+            // Sort actions: parents first, then their children, newest first
+            const sortedActions = [...chatActions].sort((a, b) => {
+                // If one is parent of the other, parent comes first
+                if (a.correlationId === b.parentId) return -1;
+                if (b.correlationId === a.parentId) return 1;
+                
+                // Otherwise sort by time, newest first
+                return b.startTime - a.startTime;
+            });
+            
+            tbody.innerHTML = sortedActions.map(action => {
+                const startDate = new Date(action.startTime);
+                const timeStr = startDate.toLocaleTimeString('en-US', { hour12: false });
+                
+                // Add child indicator if this is a child action
+                const isChild = action.isChild || action.parentId;
+                const actionDisplay = isChild ? `↳ ${action.action}` : action.action;
+                
+                // Status display with colors
+                let statusDisplay = '';
+                let statusClass = '';
+                
+                switch (action.status) {
+                    case 'pending':
+                        const elapsed = Date.now() - action.startTime;
+                        statusDisplay = `Pending (${Math.floor(elapsed / 1000)}s)`;
+                        statusClass = 'status-polling';
+                        break;
+                    case 'success':
+                        // For startTask, clarify that the task was queued, not completed
+                        if (action.action === 'startTask') {
+                            statusDisplay = 'Queued';
+                        } else {
+                            statusDisplay = 'Success';
+                        }
+                        statusClass = 'status-completed';
+                        break;
+                    case 'error':
+                        statusDisplay = 'Error';
+                        statusClass = 'status-failed';
+                        break;
+                    case 'debug':
+                        statusDisplay = 'Debug';
+                        statusClass = 'status-debug';
+                        break;
+                    case 'info':
+                        statusDisplay = 'Info';
+                        statusClass = 'status-info';
+                        break;
+                    default:
+                        statusDisplay = action.status || 'Unknown';
+                        statusClass = '';
+                }
+                
+                // Format details based on action type
+                let detailsText = '';
+                if (action.action === 'markdownRender' && action.details) {
+                    detailsText = `Raw: ${action.details.rawLength} → Rendered: ${action.details.renderedLength}`;
+                    if (action.details.hasStrayTags) {
+                        detailsText += ' <span style="color: var(--error);">⚠️ Stray tags</span>';
+                    }
+                    if (action.details.truncatedTable) {
+                        detailsText += ' <span style="color: var(--warning);">📋 Truncated</span>';
+                    }
+                } else if (action.action === 'markdown-cleanup' && action.details) {
+                    detailsText = `Found ${action.details.strayTagCount} stray tags`;
+                } else {
+                    // Show key action info based on action type
+                    const details = [];
+                    
+                    // Special handling for startTask action
+                    if (action.action === 'startTask' && action.params.initialPrompt) {
+                        const prompt = action.params.initialPrompt;
+                        if (prompt.length > 60) {
+                            details.push(`"${prompt.substring(0, 57)}..."`);
+                        } else {
+                            details.push(`"${prompt}"`);
+                        }
+                    } else {
+                        // Show correlation IDs for other actions
+                        if (action.guid) details.push(`guid: ${action.guid.substring(0, 8)}...`);
+                        if (action.correlationId) details.push(`correlationId: ${action.correlationId.substring(0, 8)}...`);
+                        if (action.isRoot) details.push('ROOT');
+                        if (action.parentId) details.push(`parent: ${action.parentId.substring(0, 8)}...`);
+                        
+                        // Add params if they exist and aren't empty (but skip initialPrompt and tabTitle)
+                        if (action.params && Object.keys(action.params).length > 0) {
+                            const filteredParams = Object.keys(action.params)
+                                .filter(k => k !== 'initialPrompt' && k !== 'tabTitle')
+                                .map(k => `${k}: ${action.params[k]}`);
+                            if (filteredParams.length > 0) {
+                                const paramStr = filteredParams.join(', ');
+                                if (paramStr.length > 30) {
+                                    details.push(paramStr.substring(0, 27) + '...');
+                                } else if (paramStr) {
+                                    details.push(paramStr);
+                                }
+                            }
+                        }
+                    }
+                    
+                    detailsText = details.join(', ');
+                }
+                
+                // View log link
+                const logCell = `<td><a href="#" onclick="window.performControlAction('viewChatActionLog', {guid: '${action.guid}'}); return false;" style="color: var(--accent-primary); text-decoration: none;">View</a></td>`;
+                
+                return `
+                    <tr data-guid="${action.guid}" class="${isChild ? 'console-row-child' : ''}">
+                        <td>${timeStr}</td>
+                        <td title="${action.tabTitle || ''}">${(action.tabTitle || '').substring(0, 20)}${(action.tabTitle || '').length > 20 ? '...' : ''}</td>
+                        <td>${actionDisplay}</td>
+                        <td>${detailsText}</td>
+                        <td class="${statusClass}">${statusDisplay}</td>
+                        ${logCell}
+                    </tr>
+                `;
+            }).join('');
         }
         
         function restorePendingTimeouts() {
@@ -3661,6 +6349,12 @@
         function updateAgentStatusInstantly(agentName, command, status, correlationId) {
             if (!agentName || agentName === 'all') return; // Skip parent commands
             
+            // Log the status change
+            const action = command.includes('stop') ? 'stop' : (command.includes('start') ? 'start' : command);
+            const target = command.includes('manager') ? 'manager' : 'agent';
+            hubGuiLog.log(agentName, correlationId, `status-change`, 
+                `${target} status changed to ${status} after ${action} operation`);
+            
             // Find the agent element in the DOM
             const agentsList = document.getElementById('agents-list');
             if (!agentsList) return;
@@ -3701,7 +6395,291 @@
             }
         }
         
+        // Register tab with hub API
+        async function registerTab() {
+            try {
+                const response = await fetch(`${API_BASE}/tabs/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tabId: TAB_ID })
+                });
+                
+                if (response.ok) {
+                    console.log(`[TAB] Tab registered with hub: ${TAB_ID}`);
+                    hubGuiLog.log(null, null, 'tab-registered', `Tab registered with hub API: ${TAB_ID}`);
+                }
+            } catch (error) {
+                console.error('[TAB] Failed to register tab:', error);
+            }
+        }
+        
+        // Client-side API routing
+        function setupClientAPI() {
+            // Intercept navigation to client API endpoints
+            const originalPushState = history.pushState;
+            const originalReplaceState = history.replaceState;
+            
+            function handleClientRoute() {
+                const path = window.location.pathname;
+                const params = new URLSearchParams(window.location.search);
+                
+                // Check if this is a client API endpoint
+                if (path.startsWith('/api/client/')) {
+                    handleClientAPI(path, params);
+                    return true;
+                }
+                return false;
+            }
+            
+            // Override history methods
+            history.pushState = function() {
+                originalPushState.apply(history, arguments);
+                handleClientRoute();
+            };
+            
+            history.replaceState = function() {
+                originalReplaceState.apply(history, arguments);
+                handleClientRoute();
+            };
+            
+            // Handle browser navigation
+            window.addEventListener('popstate', handleClientRoute);
+            
+            // Check current URL on load
+            handleClientRoute();
+        }
+        
+        // Handle client-side API requests
+        function handleClientAPI(path, params) {
+            const format = params.get('format') || 'json';
+            let response = null;
+            
+            switch (path) {
+                case '/api/client/logs':
+                    response = hubGuiLog.getLogs({
+                        worker: params.get('worker'),
+                        correlationId: params.get('correlationId'),
+                        action: params.get('action'),
+                        from: params.get('from'),
+                        to: params.get('to'),
+                        last: params.get('last') ? parseInt(params.get('last')) : null
+                    });
+                    break;
+                    
+                case '/api/client/logs/interleaved':
+                    // Get interleaved logs for a specific correlationId
+                    const correlationId = params.get('correlationId');
+                    if (!correlationId) {
+                        response = { error: 'correlationId parameter required' };
+                        break;
+                    }
+                    
+                    // Fetch execution logs from hub and interleave with UI logs
+                    fetch(`${API_BASE}/executions/${correlationId}`)
+                        .then(resp => resp.json())
+                        .then(execution => {
+                            const uiEvents = hubGuiLog.getLogs({ correlationId: correlationId });
+                            
+                            // Create the same interleaved view as the UI
+                            const interleavedLogs = [];
+                            const startTime = execution.startTime;
+                            
+                            // Add UI events
+                            uiEvents.forEach(uiEvent => {
+                                const eventTime = new Date(uiEvent.datetime).getTime();
+                                interleavedLogs.push({
+                                    timestamp: uiEvent.datetime,
+                                    elapsed: eventTime - startTime,
+                                    type: 'UI_EVENT',
+                                    source: 'ui',
+                                    message: `${uiEvent.action}: ${uiEvent.description}`,
+                                    color: '#bb86fc'
+                                });
+                            });
+                            
+                            // Add execution logs
+                            if (execution.logs) {
+                                execution.logs.forEach(log => {
+                                    const timestampMatch = log.match(/\[(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)\]/);
+                                    if (timestampMatch) {
+                                        const logTime = new Date(timestampMatch[1]).getTime();
+                                        const message = log.substring(log.indexOf(']') + 1).trim();
+                                        interleavedLogs.push({
+                                            timestamp: timestampMatch[1],
+                                            elapsed: logTime - startTime,
+                                            type: 'EXECUTION',
+                                            source: 'backend',
+                                            message: message,
+                                            raw: log
+                                        });
+                                    }
+                                });
+                            }
+                            
+                            // Sort by timestamp
+                            interleavedLogs.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+                            
+                            response = {
+                                correlationId: correlationId,
+                                command: execution.command,
+                                agent: execution.agent,
+                                status: execution.status,
+                                startTime: execution.startTime,
+                                endTime: execution.endTime,
+                                logs: interleavedLogs
+                            };
+                            
+                            // Display the response
+                            displayClientResponse(response, format);
+                        })
+                        .catch(error => {
+                            response = { error: error.message };
+                            displayClientResponse(response, format);
+                        });
+                    return; // Async response
+                    break;
+                    
+                case '/api/client/state':
+                    response = {
+                        tabId: TAB_ID,
+                        version: HUB_VERSION,
+                        timestamp: new Date().toISOString(),
+                        agents: httpAgents?.getAgents() || [],
+                        activeTab: activeTabId,
+                        consoleVisible: typeof consoleVisible !== 'undefined' ? consoleVisible : false,
+                        pendingCommands: getStoredCommands().filter(c => c.status === 'pending'),
+                        sessionInfo: {
+                            startTime: sessionStorage.getItem('sessionStartTime') || new Date().toISOString(),
+                            logCount: hubGuiLog.getLogs().length
+                        }
+                    };
+                    break;
+                    
+                case '/api/client/performance':
+                    response = {
+                        tabId: TAB_ID,
+                        navigation: performance.getEntriesByType('navigation')[0],
+                        memory: performance.memory || null,
+                        timing: performance.timing
+                    };
+                    break;
+                    
+                case '/api/client/storage':
+                    response = {
+                        tabId: TAB_ID,
+                        session: {
+                            keys: Object.keys(sessionStorage),
+                            size: JSON.stringify(sessionStorage).length
+                        },
+                        local: {
+                            keys: Object.keys(localStorage),
+                            size: JSON.stringify(localStorage).length
+                        }
+                    };
+                    break;
+                    
+                case '/api/client/errors':
+                    response = {
+                        tabId: TAB_ID,
+                        errors: window.collectedErrors || [],
+                        message: 'Error collection not yet implemented'
+                    };
+                    break;
+                    
+                default:
+                    if (path.startsWith('/api/client/action/')) {
+                        handleClientAction(path.replace('/api/client/action/', ''), params);
+                        return;
+                    }
+                    response = { error: 'Unknown client API endpoint', path };
+            }
+            
+            // Display response
+            if (format === 'html') {
+                displayClientAPIResponse(response, path);
+            } else {
+                // JSON format - replace page content with JSON
+                document.body.innerHTML = `<pre style="white-space: pre-wrap; word-wrap: break-word; font-family: monospace; padding: 20px;">${JSON.stringify(response, null, 2)}</pre>`;
+            }
+        }
+        
+        // Handle client API actions
+        function handleClientAction(action, params) {
+            const actions = {
+                'stop-all-agents': () => stopAllAgents(),
+                'stop-all-managers': () => stopAllManagers(),
+                'clear-console': () => clearConsoleContent(),
+                'clear-logs': () => hubGuiLog.clear(),
+                'refresh-agents': () => loadAgents(),
+                'simulate-click': () => {
+                    const target = params.get('target');
+                    const agent = params.get('agent');
+                    // Implementation depends on UI structure
+                    console.log(`[CLIENT-API] Simulate click: ${target} on ${agent}`);
+                }
+            };
+            
+            const actionFn = actions[action];
+            if (actionFn) {
+                actionFn();
+                document.body.innerHTML = `<pre>Action '${action}' executed successfully</pre>`;
+            } else {
+                document.body.innerHTML = `<pre>Unknown action: ${action}</pre>`;
+            }
+        }
+        
+        // Display client API response in HTML format
+        function displayClientAPIResponse(data, endpoint) {
+            const html = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Client API Response - ${endpoint}</title>
+                    <style>
+                        body { 
+                            font-family: monospace; 
+                            padding: 20px; 
+                            background: #1a1a1a; 
+                            color: #e0e0e0;
+                        }
+                        pre { 
+                            white-space: pre-wrap; 
+                            word-wrap: break-word; 
+                        }
+                        .header {
+                            color: #4CAF50;
+                            margin-bottom: 20px;
+                        }
+                        .tab-info {
+                            color: #2196F3;
+                            margin-bottom: 10px;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">Client API Response: ${endpoint}</div>
+                    <div class="tab-info">Tab ID: ${TAB_ID}</div>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                </body>
+                </html>
+            `;
+            document.documentElement.innerHTML = html;
+        }
+        
         // Initialize - moved here after all functions are defined
+        // Set title dynamically from HUB_VERSION
+        document.title = `Infrastructure AI Hub (v${HUB_VERSION})`;
+        
+        registerTab();
+        setupClientAPI();
+        
+        // Clear all tabs on page load (fresh start)
+        clearAllTabs();
+        
+        // Log hub startup
+        hubGuiLog.log(null, null, 'hub-startup', 
+            `Hub UI v${HUB_VERSION} loaded at ${window.location.href}`);
+        
         loadHistory();
         loadAgents();
         loadHubStatus();
@@ -3822,12 +6800,17 @@
                 
                 // Use new multi-agent endpoint
                 try {
+                    // Log the operation
+                    hubGuiLog.log('all', parentCorrelationId, 'start-all-agents', 
+                        `Starting all agents: ${childOperations.map(op => op.agent).join(', ')}`);
+                    
                     const response = await fetch(`${API_BASE}/agents/multi/start`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ 
                             agents: childOperations.map(op => op.agent),
-                            parentCorrelationId 
+                            parentCorrelationId,
+                            tabId: TAB_ID 
                         })
                     });
                     
@@ -3905,7 +6888,8 @@
                 for (const agent of onlineAgents) {
                     // Check if manager is online
                     const managerVersion = agent.managerVersion || agent.manager?.version;
-                    const managerOnline = managerVersion && managerVersion !== 'unknown' && managerVersion !== '';
+                    // Manager is online if it has any version that's not explicitly 'unknown' or 'offline'
+                    const managerOnline = managerVersion && managerVersion !== 'unknown' && managerVersion !== 'offline';
                     
                     if (!managerOnline) {
                         console.log(`Skipping ${agent.name} - manager not online`);
@@ -3938,12 +6922,17 @@
                 
                 // Use new multi-agent endpoint
                 try {
+                    // Log the operation
+                    hubGuiLog.log('all', parentCorrelationId, 'stop-all-agents', 
+                        `Stopping all agents: ${childOperations.map(op => op.agent).join(', ')}`);
+                    
                     const response = await fetch(`${API_BASE}/agents/multi/stop`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ 
                             agents: childOperations.map(op => op.agent),
-                            parentCorrelationId 
+                            parentCorrelationId,
+                            tabId: TAB_ID 
                         })
                     });
                     
@@ -4047,7 +7036,7 @@
                         console.log(`[${new Date().toISOString()}] Sending start-manager command to ${agent.name} (correlationId: ${correlationId})`);
                         
                         // Add child command to console
-                        addConsoleCommand(agent.name, 'start-manager', 'pending', correlationId, true, parentCorrelationId);
+                        addConsoleCommand(agent.name, 'startManager', 'pending', correlationId, true, parentCorrelationId);
                         listenForExecutionUpdates(correlationId);
                         
                         const response = await fetch(`${API_BASE}/managers/${agent.name}/start`, {
@@ -4227,7 +7216,7 @@
                         console.log(`[${new Date().toISOString()}] Sending stop-manager command to ${agent.name} (correlationId: ${correlationId})`);
                         
                         // Add child command to console
-                        addConsoleCommand(agent.name, 'stop-manager', 'pending', correlationId, true, parentCorrelationId);
+                        addConsoleCommand(agent.name, 'stopManager', 'pending', correlationId, true, parentCorrelationId);
                         listenForExecutionUpdates(correlationId);
                         
                         const response = await fetch(`${API_BASE}/managers/${agent.name}/stop`, {
@@ -4378,33 +7367,50 @@
                 
                 const execution = await hubResponse.json();
                 
+                // Also get UI events from hubGuiLog for this correlationId
+                const uiEvents = hubGuiLog.getLogs({ correlationId: correlationId });
+                
                 // Create modal to show logs
                 const modal = document.createElement('div');
                 modal.className = 'modal log-viewer-modal';
                 modal.innerHTML = `
                     <div class="modal-content" style="max-width: 90%; max-height: 80vh;">
                         <div class="modal-header">
-                            <h2>Logs for ${correlationId}</h2>
-                            <span class="close-button" onclick="this.closest('.modal').remove()">&times;</span>
+                            <h2>Logs for ${execution.agent.toUpperCase()} ${execution.command.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}</h2>
+                            <span class="close-button" onclick="window.performControlAction('closeModal', {element: this})">&times;</span>
                         </div>
                         <div class="modal-body">
-                            <h3 style="margin-top: 0;">Command: ${execution.command}</h3>
-                            <div class="command-info">
-                                <div class="command-info-row">
-                                    <span><strong>Agent:</strong> ${execution.agent}</span>
-                                    <span><strong>Status:</strong> ${execution.status}</span>
-                                </div>
-                                <div class="command-info-row">
-                                    <span><strong>Started:</strong> ${new Date(execution.startTime).toLocaleTimeString()}</span>
-                                    ${execution.endTime ? `<span><strong>Completed:</strong> ${new Date(execution.endTime).toLocaleTimeString()}</span>` : ''}
+                            <div class="command-info-section">
+                                <h3 style="margin-top: 0;">Command: ${execution.command}</h3>
+                                <div class="command-info">
+                                    <div class="command-info-row">
+                                        <span><strong>Status:</strong> ${execution.status}</span>
+                                    </div>
+                                    <div class="command-info-row">
+                                        <span><strong>Started:</strong> ${new Date(execution.startTime).toLocaleTimeString()}</span>
+                                        ${execution.endTime ? `<span><strong>Completed:</strong> ${new Date(execution.endTime).toLocaleTimeString()}</span>` : ''}
+                                    </div>
+                                    <div class="command-info-row">
+                                        <span><strong>Total duration:</strong> ${execution.endTime ? `${execution.endTime - execution.startTime}ms` : 'In progress...'}</span>
+                                    </div>
                                 </div>
                             </div>
                             
-                            <h3>Execution Timeline:</h3>
-                            ${renderExecutionTimeline(execution)}
-                            
-                            <h3>Execution Logs:</h3>
-                            ${formatHubLogs(execution.logs)}
+                            <div class="sections-container">
+                                <div class="timeline-section">
+                                    <h3>Execution Timeline:</h3>
+                                    <div class="timeline-content">
+                                        ${renderExecutionTimeline(execution, uiEvents)}
+                                    </div>
+                                </div>
+                                
+                                <div class="logs-section">
+                                    <h3>Execution Logs:</h3>
+                                    <div class="logs-content">
+                                        ${formatHubLogs(execution.logs, uiEvents)}
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 `;
@@ -4418,7 +7424,7 @@
             }
         }
         
-        function renderExecutionTimeline(execution) {
+        function renderExecutionTimeline(execution, uiEvents = []) {
             if (!execution.startTime) {
                 return '<p style="color: #888;">No timeline data available</p>';
             }
@@ -4426,6 +7432,23 @@
             // Extract and group events from logs
             const events = [];
             const startTime = execution.startTime;
+            
+            // Add UI events to the timeline
+            uiEvents.forEach(uiEvent => {
+                const eventTime = new Date(uiEvent.datetime).getTime();
+                const elapsed = eventTime - startTime;
+                
+                events.push({
+                    timestamp: new Date(uiEvent.datetime),
+                    time: eventTime,
+                    elapsed: elapsed,
+                    type: 'UI Event',
+                    messages: [`${uiEvent.action}: ${uiEvent.description}`],
+                    color: '#bb86fc',
+                    icon: '👤',
+                    source: 'ui'
+                });
+            });
             
             // Parse logs to extract and group events
             if (execution.logs && execution.logs.length > 0) {
@@ -4449,7 +7472,7 @@
                         
                         if (message.includes('[START]')) {
                             // Check if this is a stop command
-                            if (message.includes('stop-agent') || message.includes('stop-manager')) {
+                            if (message.includes('stopAgent') || message.includes('stopManager')) {
                                 eventType = 'Stop';
                                 color = '#e74c3c';
                                 icon = '■';
@@ -4509,11 +7532,13 @@
                             }
                             currentEvent = {
                                 timestamp: new Date(timestampMatch[1]),
+                                time: logTime,
                                 elapsed: elapsed,
                                 type: eventType,
                                 messages: [cleanMessage],
                                 color: color,
-                                icon: icon
+                                icon: icon,
+                                source: 'backend'
                             };
                         }
                     }
@@ -4633,14 +7658,64 @@
             
             return html;
         }        
-        function formatHubLogs(logs) {
-            if (!logs || logs.length === 0) {
+        function formatHubLogs(logs, uiEvents = []) {
+            if ((!logs || logs.length === 0) && (!uiEvents || uiEvents.length === 0)) {
                 return '<p style="color: #888;">No logs available</p>';
             }
             
+            // Combine backend logs and UI events
+            const allEvents = [];
+            
+            // Parse backend logs
+            if (logs && logs.length > 0) {
+                logs.forEach(log => {
+                    const timestampMatch = log.match(/\[(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)\]/);
+                    if (timestampMatch) {
+                        allEvents.push({
+                            timestamp: new Date(timestampMatch[1]),
+                            content: log,
+                            type: 'backend'
+                        });
+                    } else {
+                        // Log without timestamp
+                        allEvents.push({
+                            timestamp: null,
+                            content: log,
+                            type: 'backend'
+                        });
+                    }
+                });
+            }
+            
+            // Add UI events
+            if (uiEvents && uiEvents.length > 0) {
+                uiEvents.forEach(event => {
+                    const timestamp = new Date(event.datetime);
+                    const timeStr = timestamp.toISOString();
+                    const content = `[${timeStr}] [UI EVENT] ${event.action}: ${event.description}`;
+                    allEvents.push({
+                        timestamp: timestamp,
+                        content: content,
+                        type: 'ui'
+                    });
+                });
+            }
+            
+            // Sort all events by timestamp
+            allEvents.sort((a, b) => {
+                if (!a.timestamp) return 1;
+                if (!b.timestamp) return -1;
+                return a.timestamp - b.timestamp;
+            });
+            
             let html = '<div class="log-section"><pre style="background: #1e1e1e; padding: 12px; border-radius: 4px; color: #fff; overflow-x: auto;">';
-            for (const log of logs) {
-                html += log + '\n';
+            for (const event of allEvents) {
+                if (event.type === 'ui') {
+                    // Style UI events differently
+                    html += `<span style="color: #bb86fc;">${event.content}</span>\n`;
+                } else {
+                    html += event.content + '\n';
+                }
             }
             html += '</pre></div>';
             return html;
@@ -4773,11 +7848,20 @@
                         
                         console.log('[EventSource] Received execution update:', execution);
                         
+                        // Log the EventSource update
+                        if (execution.correlationId && execution.agent) {
+                            hubGuiLog.log(execution.agent, execution.correlationId, 'callback-received', 
+                                `EventSource received ${execution.status} callback for ${execution.command}`);
+                        }
+                        
                         // Update command with matching correlationId
                         const commands = getStoredCommands();
                         const command = commands.find(c => c.correlationId === execution.correlationId);
                         if (command) {
                             console.log(`[EventSource] Updating command ${execution.correlationId} with timing info`);
+                            
+                            // Store previous status for logging
+                            const previousStatus = command.status;
                             
                             // Handle late callbacks for start operations that previously timed out
                             if (command.status === 'timeout' && execution.status === 'success' && command.command.includes('start')) {
@@ -4786,6 +7870,12 @@
                                 execution.status = 'timeoutSuccess'; // Update execution status too
                             } else {
                                 command.status = execution.status || 'pending';
+                            }
+                            
+                            // Log UI event for status change
+                            if (previousStatus !== command.status) {
+                                hubGuiLog.log(execution.agent || command.agent, execution.correlationId, 'console-status-changed', 
+                                    `Console entry status changed from ${previousStatus} to ${command.status}`);
                             }
                             
                             command.timingInfo = formatTimingInfo(execution);

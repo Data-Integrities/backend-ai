@@ -1,0 +1,73 @@
+#!/usr/bin/env node
+
+/**
+ * pbp - Proxy Bypass Program
+ * Usage: pbp input.json output.json
+ * 
+ * Reads request from input file, executes HTTP request directly, writes response to output file
+ */
+
+const fs = require('fs');
+const http = require('http');
+
+// Check arguments
+if (process.argv.length !== 4) {
+    console.error('Usage: pbp input.json output.json');
+    process.exit(1);
+}
+
+const inputFile = process.argv[2];
+const outputFile = process.argv[3];
+
+// Read the request
+let request;
+try {
+    const inputData = fs.readFileSync(inputFile, 'utf8');
+    request = JSON.parse(inputData);
+} catch (err) {
+    console.error(`Error reading ${inputFile}:`, err.message);
+    process.exit(1);
+}
+
+// Parse URL from request
+const url = new URL(request.url);
+const options = {
+    hostname: url.hostname,
+    port: url.port || 80,
+    path: url.pathname + url.search,
+    method: request.method || 'GET',
+    headers: request.headers || {}
+};
+
+// Make the direct HTTP request
+const httpReq = http.request(options, (res) => {
+    let data = '';
+    
+    res.on('data', chunk => {
+        data += chunk;
+    });
+    
+    res.on('end', () => {
+        try {
+            // Write response to output file
+            fs.writeFileSync(outputFile, data);
+            console.log(`Response written to ${outputFile}`);
+        } catch (err) {
+            console.error(`Error writing ${outputFile}:`, err.message);
+            process.exit(1);
+        }
+    });
+});
+
+httpReq.on('error', (err) => {
+    console.error('HTTP request failed:', err.message);
+    process.exit(1);
+});
+
+// Send request body if present
+if (request.body) {
+    httpReq.write(JSON.stringify(request.body));
+}
+
+// Execute the request
+httpReq.end();

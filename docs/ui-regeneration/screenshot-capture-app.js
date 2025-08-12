@@ -6,7 +6,7 @@ const fs = require('fs');
 const app = express();
 const PORT = 3333;
 
-const SCREENSHOT_DIR = path.join(__dirname, 'docs/ui-regeneration/screenshots');
+const SCREENSHOT_DIR = path.join(__dirname, 'screenshots');
 
 // Screenshot definitions
 const SCREENSHOTS = [
@@ -54,13 +54,10 @@ const SCREENSHOTS = [
     { path: "context-menu/context-menu-disabled-hover.png", desc: "Hovering over a disabled item (shows not-allowed cursor)" },
     { path: "context-menu/context-menu-enabled-hover.png", desc: "Hovering over enabled item (shows hover highlight)" },
     { path: "status-bar/status-bar-clock-format.png", desc: "Clock showing '2:45:33 PM' format (no leading zero)" },
-    { path: "status-bar/status-bar-last-update.png", desc: "The 'Last Update' timestamp" },
     { path: "status-bar/status-bar-complete.png", desc: "Entire status bar at bottom" },
     { path: "full-page-normal-state.png", desc: "ENTIRE hub interface in normal state" },
     { path: "full-page-with-modal.png", desc: "Hub with log viewer modal open" },
-    { path: "full-page-operation-running.png", desc: "Hub during active operations (console entries visible)" },
-    { path: "responsive-tablet-view.png", desc: "Hub on tablet/iPad view (optional)" },
-    { path: "responsive-mobile-view.png", desc: "Hub on mobile view (optional)" }
+    { path: "full-page-operation-running.png", desc: "Hub during active operations (console entries visible)" }
 ];
 
 // Multer setup for handling file uploads

@@ -19,20 +19,26 @@ function setupMultiAgentEndpoints(app, httpAgents) {
         console.log(`[MULTI-AGENT] Starting multi-agent start operation with parent ${parentCorrelationId}`);
         // Start parent execution tracking
         correlation_tracker_1.correlationTracker.startExecution(parentCorrelationId, 'start-all', 'multi-agent', 'start-all');
+        // Pre-register all child IDs to prevent race condition
+        const childCorrelationIds = [];
+        agents.forEach((agentName) => {
+            const childCorrelationId = correlation_tracker_1.correlationTracker.generateCorrelationId();
+            childCorrelationIds.push(childCorrelationId);
+            // Register child with parent immediately
+            correlation_tracker_1.correlationTracker.startExecution(childCorrelationId, 'start-agent', agentName, 'start-agent', parentCorrelationId);
+        });
         // Start all child operations
-        const childPromises = agents.map(async (agentName) => {
+        const childPromises = agents.map(async (agentName, index) => {
             const agent = httpAgents.getAgent(agentName);
+            const childCorrelationId = childCorrelationIds[index];
             if (!agent) {
+                correlation_tracker_1.correlationTracker.failExecution(childCorrelationId, 'Agent not found');
                 return {
                     agentName,
                     success: false,
                     error: 'Agent not found'
                 };
             }
-            // Generate child correlationId
-            const childCorrelationId = correlation_tracker_1.correlationTracker.generateCorrelationId();
-            // Start child execution with parentId
-            correlation_tracker_1.correlationTracker.startExecution(childCorrelationId, 'start-agent', agentName, 'start-agent', parentCorrelationId);
             httpAgents.setPendingCorrelationId(agentName, childCorrelationId);
             try {
                 // Call agent manager
@@ -83,22 +89,28 @@ function setupMultiAgentEndpoints(app, httpAgents) {
             return res.status(400).json({ error: 'parentCorrelationId is required' });
         }
         console.log(`[MULTI-AGENT] Starting multi-agent stop operation with parent ${parentCorrelationId}`);
-        // Start parent execution tracking
+        // Start parent execution tracking with expected child count
         correlation_tracker_1.correlationTracker.startExecution(parentCorrelationId, 'stop-all', 'multi-agent', 'stop-all');
+        // Pre-register all child IDs to prevent race condition
+        const childCorrelationIds = [];
+        agents.forEach((agentName) => {
+            const childCorrelationId = correlation_tracker_1.correlationTracker.generateCorrelationId();
+            childCorrelationIds.push(childCorrelationId);
+            // Register child with parent immediately
+            correlation_tracker_1.correlationTracker.startExecution(childCorrelationId, 'stop-agent', agentName, 'stop-agent', parentCorrelationId);
+        });
         // Stop all child operations
-        const childPromises = agents.map(async (agentName) => {
+        const childPromises = agents.map(async (agentName, index) => {
             const agent = httpAgents.getAgent(agentName);
+            const childCorrelationId = childCorrelationIds[index];
             if (!agent) {
+                correlation_tracker_1.correlationTracker.failExecution(childCorrelationId, 'Agent not found');
                 return {
                     agentName,
                     success: false,
                     error: 'Agent not found'
                 };
             }
-            // Generate child correlationId
-            const childCorrelationId = correlation_tracker_1.correlationTracker.generateCorrelationId();
-            // Start child execution with parentId
-            correlation_tracker_1.correlationTracker.startExecution(childCorrelationId, 'stop-agent', agentName, 'stop-agent', parentCorrelationId);
             httpAgents.setPendingCorrelationId(agentName, childCorrelationId);
             try {
                 // Call agent manager

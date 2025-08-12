@@ -1,0 +1,14 @@
+{
+  "method": "POST",
+  "url": "http://192.168.1.30/api/browser/control",
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "body": {
+    "tabId": "tab_1754084153080_01svlx451",
+    "action": "perform-action",
+    "params": {
+      "action": "refresh"
+    }
+  }
+}

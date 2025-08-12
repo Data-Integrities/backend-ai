@@ -1,0 +1,10 @@
+#!/bin/bash
+
+# Screenshot Capture App Launcher
+# Runs the capture app with hot reload enabled
+
+cd "$(dirname "$0")"
+echo "Starting Screenshot Capture App with hot reload..."
+echo "Open http://localhost:3456 in your browser"
+echo ""
+node --watch docs/ui-regeneration/screenshot-capture-app.js

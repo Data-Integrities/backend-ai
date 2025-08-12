@@ -57,6 +57,34 @@ export function setupCorrelationEndpoints(app: Express) {
     
     res.json(execution);
   });
+  
+  // Get complete execution logs (execution data + logs)
+  app.get('/api/executions/:correlationId/complete', (req, res) => {
+    const { correlationId } = req.params;
+    const execution = correlationTracker.getExecution(correlationId);
+    
+    if (!execution) {
+      return res.status(404).json({ error: 'Execution not found' });
+    }
+    
+    // Format the complete execution data with logs
+    const completeExecution = {
+      ...execution,
+      formattedLogs: (execution.logs || []).map((log, index) => ({
+        index,
+        timestamp: new Date(execution.startTime + (index * 1000)).toISOString(), // Approximate timestamps
+        message: log,
+        type: log.startsWith('[DEBUG]') ? 'DEBUG' : 
+              log.startsWith('[HUB]') ? 'HUB' : 
+              log.startsWith('[CALLBACK]') ? 'CALLBACK' :
+              log.startsWith('[TRACKER]') ? 'TRACKER' :
+              log.startsWith('[STOP]') ? 'STOP' :
+              'INFO'
+      }))
+    };
+    
+    res.json(completeExecution);
+  });
 
   // Get all recent executions
   app.get('/api/executions', (req, res) => {
@@ -78,21 +106,25 @@ export function setupCorrelationEndpoints(app: Express) {
   // Mark execution as complete (called by agents/managers)
   app.post('/api/executions/:correlationId/complete', (req, res) => {
     const { correlationId } = req.params;
-    const { result } = req.body;
+    const { result, agentId, agentName } = req.body;
+    
+    // Debug log the entire request body
+    console.log(`[CALLBACK DEBUG] Received callback for ${correlationId}:`, JSON.stringify(req.body, null, 2));
     
     // Log the callback received
     const execution = correlationTracker.getExecution(correlationId);
     if (execution) {
       const duration = Date.now() - execution.startTime;
-      const agentInfo = result?.agentId || result?.agentName || 'unknown';
+      // Check for agent info in both result object and top-level of request body
+      const agentInfo = result?.agentId || result?.agentName || result?.agent || agentId || agentName || 'unknown';
       correlationTracker.addLog(correlationId, `[CALLBACK] Completion callback received from ${agentInfo} (IP: ${req.ip})`);
       correlationTracker.addLog(correlationId, `[CALLBACK] Result: ${JSON.stringify(result)}`);
       correlationTracker.addLog(correlationId, `[CALLBACK] Total duration: ${duration}ms (${(duration/1000).toFixed(1)}s)`);
       
-      // Log if agent name is missing
-      if (!result?.agentId && !result?.agentName) {
+      // Log if agent name is missing from all possible locations
+      if (!result?.agentId && !result?.agentName && !result?.agent && !agentId && !agentName) {
         correlationTracker.addLog(correlationId, `[WARNING] Callback missing agent identification`);
-        console.warn(`[CALLBACK] Missing agent name for ${correlationId}:`, result);
+        console.warn(`[CALLBACK] Missing agent name for ${correlationId}:`, req.body);
       }
     }
     

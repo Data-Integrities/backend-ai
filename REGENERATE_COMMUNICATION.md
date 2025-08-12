@@ -213,6 +213,28 @@ The stop process requires monitoring because stopped services cannot report thei
 5. **Parent Completion**: When last child completes, webAPI marks parent complete
 6. **Dialog Display**: Only after parent marked complete
 
+### Manager Availability Check
+
+When executing "Stop All Agents" or similar operations:
+
+1. **Manager Status Verification**:
+   - Check if manager is online before attempting agent operations
+   - Manager is considered online if `managerVersion` exists and is NOT 'unknown' or 'offline'
+   - Empty string ('') should be treated as online (legacy compatibility)
+   
+2. **Skip Logic**:
+   - If manager is offline, skip the agent operation
+   - Add result to summary as "Manager must be running to control agent"
+   - Don't create child operation for agents with offline managers
+   
+3. **UI Filtering**:
+   ```javascript
+   // Check manager status
+   const managerOnline = managerVersion && 
+                        managerVersion !== 'unknown' && 
+                        managerVersion !== 'offline';
+   ```
+
 ## Timeout Handling
 
 ### Timeout Values
@@ -322,6 +344,7 @@ if (execution.status === 'success' || execution.status === 'failed' ||
 - Each child operation is tracked independently
 - HTTP endpoints return 202 Accepted immediately (not success)
 - **Critical**: HTTP response success (200/202) means "command received", NOT "operation complete"
+- **Race Condition Prevention**: All child operations must be pre-registered with the parent before any async work begins
 
 ### Status Propagation
 - Child operations update their own status via callbacks FROM THE WORKER
@@ -329,6 +352,29 @@ if (execution.status === 'success' || execution.status === 'failed' ||
 - Initial HTTP response only confirms command was sent, not executed
 - Parent status is calculated and updated ONLY by correlation tracker
 - UI polls parent status - it should remain pending until all children complete
+
+### Parent-Child Registration (Critical)
+To prevent race conditions where parent shows "success" before children are tracked:
+
+1. **Pre-register all children** before starting any async operations:
+   ```javascript
+   // Create parent
+   correlationTracker.startExecution(parentId, 'stop-all', 'multi-agent', 'stop-all');
+   
+   // Pre-register ALL children synchronously
+   agents.forEach(agent => {
+     const childId = correlationTracker.generateCorrelationId();
+     correlationTracker.startExecution(childId, 'stop-agent', agent, 'stop-agent', parentId);
+   });
+   
+   // THEN start async operations
+   agents.map(async (agent, index) => { /* ... */ });
+   ```
+
+2. **Parent completion check** only runs when:
+   - All childIds are registered in parent.childIds array
+   - All children have reached a final state (not pending)
+   - This prevents premature parent completion
 
 ### Async Operation Flow
 1. UI sends command → Hub WebAPI → Manager/Agent (HTTP request)
@@ -349,11 +395,22 @@ if (execution.status === 'success' || execution.status === 'failed' ||
   3. Send callback to hub with correlationId
   4. Include agent name in callback for correlation
 
+### Correlation ID Tracking
+- **Hub Responsibility**: Track pending correlation IDs for each agent
+- **Storage Method**: Use `httpAgents.setPendingCorrelationId(agentName, correlationId)`
+- **Callback Matching**: 
+  1. When agent-offline notification received
+  2. Check for pending correlation ID: `httpAgents.getPendingCorrelationId(agentName)`
+  3. If found, complete the execution with that correlation ID
+  4. Clear the pending ID after use
+- **Fallback**: If no pending ID found, log warning but don't fail
+
 ### Callback Timeout Handling
 - If no callback received within 30 seconds:
   - Mark operation as **timeout**
   - Log which component failed to send callback
   - Parent operation should still complete with partial information
+  - Check logs for missed callbacks or correlation ID mismatches
 
 ## Console Display Rules
 

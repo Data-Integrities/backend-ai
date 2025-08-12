@@ -1,0 +1,16 @@
+{
+  "method": "POST",
+  "url": "http://192.168.1.30/api/browser/control",
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "body": {
+    "action": "perform-action",
+    "params": {
+      "action": "get-elements",
+      "params": {
+        "selector": "#agents-list"
+      }
+    }
+  }
+}

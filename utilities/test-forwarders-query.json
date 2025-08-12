@@ -1,0 +1,11 @@
+{
+  "type": "control",
+  "action": "perform-action",
+  "params": {
+    "action": "set-value",
+    "params": {
+      "selector": "#newChatInput",
+      "value": "ask nginx what forwarders I have and which ones are enabled"
+    }
+  }
+}

@@ -130,9 +130,9 @@ fi
 
 print_status "Configuration file found"
 
-# Auto-increment version
+# Update version using update-versions.sh
 print_info "Updating version to $VERSION..."
-./set-version.sh $VERSION >/dev/null 2>&1
+./update-versions.sh $VERSION >/dev/null 2>&1
 
 print_section "Phase 1: Building Shared Module"
 
@@ -212,6 +212,14 @@ cp -r shared $HUB_TEMP_DIR/backend-ai/hub/node_modules/@proxmox-ai-control/share
 # Copy backend-ai-config.json
 cp backend-ai-config.json $HUB_TEMP_DIR/
 
+# Copy utilities if they exist
+if [ -d "utilities" ]; then
+    mkdir -p $HUB_TEMP_DIR/backend-ai/utilities
+    cp -r utilities/* $HUB_TEMP_DIR/backend-ai/utilities/
+    chmod +x $HUB_TEMP_DIR/backend-ai/utilities/*.js 2>/dev/null || true
+    chmod +x $HUB_TEMP_DIR/backend-ai/utilities/*.sh 2>/dev/null || true
+fi
+
 # Create the tarball from the temp directory
 tar -czf hub-deployment-package.tar.gz \
     --exclude='*.log' \
@@ -278,6 +286,11 @@ fi
 
 rm /tmp/hub-deployment-package.tar.gz
 echo "Hub deployment files extracted"
+
+# Fix ownership to ensure everything is owned by root:root  
+echo "Fixing file ownership..."
+chown -R root:root /opt/backend-ai
+
 HUB_SCRIPT
 
 # Update service file with CONFIG_PATH if needed
@@ -631,6 +644,14 @@ if [ -d "agent/scripts" ]; then
     chmod +x $TEMP_DIR/ai-agent/scripts/*.sh 2>/dev/null || true
 fi
 
+# Copy utilities if they exist
+if [ -d "utilities" ]; then
+    mkdir -p $TEMP_DIR/ai-agent/utilities
+    cp -r utilities/* $TEMP_DIR/ai-agent/utilities/
+    chmod +x $TEMP_DIR/ai-agent/utilities/*.js 2>/dev/null || true
+    chmod +x $TEMP_DIR/ai-agent/utilities/*.sh 2>/dev/null || true
+fi
+
 # Copy backend-ai-config.json
 cp backend-ai-config.json $TEMP_DIR/
 
@@ -726,6 +747,16 @@ done
 # Deployment logs are saved in logs/deployment/
 echo -e "\n${BLUE}Deployment logs saved in: $DEPLOY_LOGS_DIR${NC}"
 echo -e "${BLUE}(Logs will be cleared on next deployment)${NC}"
+
+# Write worker results to file for parent shell
+echo "${#SUCCESSFUL_WORKERS[@]}" > "$DEPLOY_LOGS_DIR/successful-workers.count"
+echo "${#FAILED_WORKERS[@]}" > "$DEPLOY_LOGS_DIR/failed-workers.count"
+for worker in "${SUCCESSFUL_WORKERS[@]}"; do
+    echo "$worker" >> "$DEPLOY_LOGS_DIR/successful-workers.list"
+done
+for worker in "${FAILED_WORKERS[@]}"; do
+    echo "$worker" >> "$DEPLOY_LOGS_DIR/failed-workers.list"
+done
 
 # Cleanup
 rm -f deployment-package.tar.gz
@@ -839,6 +870,20 @@ if [ -f "$DEPLOY_LOGS_DIR/hub.success" ]; then
 else
     HUB_ERROR=$(tail -n 3 "$DEPLOY_LOGS_DIR/hub.log" 2>/dev/null | grep -E "(error|failed)" -i | head -1 | cut -c1-40 || echo "Check logs for details")
     printf "║ %-9s │ %-9s │ %-41s ║\n" "hub" "❌ FAILED" "$HUB_ERROR"
+fi
+
+# Read worker results from files
+SUCCESSFUL_WORKERS=()
+FAILED_WORKERS=()
+if [ -f "$DEPLOY_LOGS_DIR/successful-workers.list" ]; then
+    while IFS= read -r worker; do
+        SUCCESSFUL_WORKERS+=("$worker")
+    done < "$DEPLOY_LOGS_DIR/successful-workers.list"
+fi
+if [ -f "$DEPLOY_LOGS_DIR/failed-workers.list" ]; then
+    while IFS= read -r worker; do
+        FAILED_WORKERS+=("$worker")
+    done < "$DEPLOY_LOGS_DIR/failed-workers.list"
 fi
 
 # Worker statuses

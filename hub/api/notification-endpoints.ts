@@ -47,7 +47,7 @@ export function setupEnhancedEndpoints(app: express.Application, httpAgents: any
                 break;
                 
             case 'agent-offline':
-                console.log(`Agent ${agentId} going offline`);
+                console.log(`[NOTIFICATION] Agent ${agentId} going offline at ${new Date().toISOString()}`);
                 // Mark agent as offline immediately
                 const agent = httpAgents.getAgent(agentId);
                 if (agent) {
@@ -69,6 +69,13 @@ export function setupEnhancedEndpoints(app: express.Application, httpAgents: any
                         });
                         // Clear the pending correlationId
                         httpAgents.clearPendingCorrelationId(agentId);
+                    } else {
+                        console.log(`[WARNING] Agent ${agentId} offline notification received but no pending correlationId found`);
+                        // Check if there's a pending correlation ID using the getter
+                        const pendingId = httpAgents.getPendingCorrelationId(agentId);
+                        if (pendingId) {
+                            console.log(`[WARNING] Found pending ID via getter: ${pendingId}`);
+                        }
                     }
                 }
                 break;

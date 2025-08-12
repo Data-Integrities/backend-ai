@@ -1,0 +1,18 @@
+{
+  "method": "POST",
+  "url": "http://192.168.1.30/api/browser-requests",
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "body": {
+    "type": "control",
+    "action": "perform-action",
+    "params": {
+      "action": "set-value",
+      "params": {
+        "selector": "#task-description",
+        "value": "list all nginx forwarders and show which ones are enabled"
+      }
+    }
+  }
+}

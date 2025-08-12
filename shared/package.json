@@ -1,6 +1,6 @@
 {
   "name": "@proxmox-ai-control/shared",
-  "version": "2.1.89",
+  "version": "2.1.64",
   "description": "Shared types and utilities for Proxmox AI Control system",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

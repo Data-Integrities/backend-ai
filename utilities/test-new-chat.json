@@ -1,0 +1,10 @@
+{
+  "type": "control",
+  "action": "perform-action",
+  "params": {
+    "action": "click",
+    "params": {
+      "selector": "button:contains('New Chat')"
+    }
+  }
+}

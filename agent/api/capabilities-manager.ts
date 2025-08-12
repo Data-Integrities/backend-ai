@@ -57,25 +57,26 @@ export class CapabilitiesManager {
             const mainReadmePath = path.join(this.capabilitiesDir, 'README.md');
             const mainContent = await fs.readFile(mainReadmePath, 'utf-8');
             
-            // Parse main README for capability links
-            const linkRegex = /\[([^\]]+)\]\(\.\/([^\/]+)\/README\.md\)\s*\n([^\n]+)/g;
+            // Parse main README for capability sections with flat file structure
+            // Looking for pattern: ## Capability Name\nDescription\n[View Details](./file.md)
+            const sectionRegex = /##\s+([^\n]+)\n([^\n]+)\n\[([^\]]+)\]\(\.\/([^)]+)\)/g;
             let match;
             
-            while ((match = linkRegex.exec(mainContent)) !== null) {
-                const [, name, folder, description] = match;
-                const capPath = path.join(this.capabilitiesDir, folder, 'README.md');
+            while ((match = sectionRegex.exec(mainContent)) !== null) {
+                const [, name, description, linkText, filename] = match;
+                const capPath = path.join(this.capabilitiesDir, filename);
                 
                 const capability: CapabilityInfo = {
-                    name,
-                    description,
-                    readmePath: `${folder}/README.md`
+                    name: name.trim(),
+                    description: description.trim(),
+                    readmePath: filename
                 };
                 
                 if (includeContent) {
                     try {
                         capability.readmeContent = await fs.readFile(capPath, 'utf-8');
                     } catch {
-                        capability.readmeContent = '_README not found_';
+                        capability.readmeContent = '_Capability file not found_';
                     }
                 }
                 
@@ -116,15 +117,12 @@ export class CapabilitiesManager {
         }
     }
 
-    async addCapability(name: string, folder: string, description: string, readmeContent: string): Promise<void> {
+    async addCapability(name: string, filename: string, description: string, readmeContent: string): Promise<void> {
         await this.ensureCapabilitiesDir();
         
-        // Create capability folder
-        const capDir = path.join(this.capabilitiesDir, folder);
-        await fs.mkdir(capDir, { recursive: true });
-        
-        // Write capability README
-        await fs.writeFile(path.join(capDir, 'README.md'), readmeContent);
+        // Write capability file directly (flat structure)
+        const capFilePath = path.join(this.capabilitiesDir, filename);
+        await fs.writeFile(capFilePath, readmeContent);
         
         // Update main README
         const mainReadmePath = path.join(this.capabilitiesDir, 'README.md');
@@ -133,8 +131,8 @@ export class CapabilitiesManager {
         // Remove placeholder if exists
         mainContent = mainContent.replace('_No additional capabilities installed yet._', '');
         
-        // Add new capability link
-        const newEntry = `\n## [${name}](./${folder}/README.md)\n${description}\n`;
+        // Add new capability section
+        const newEntry = `\n## ${name}\n${description}\n[View Details](./${filename})\n`;
         mainContent += newEntry;
         
         await fs.writeFile(mainReadmePath, mainContent);

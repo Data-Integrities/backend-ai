@@ -1,1 +1,1 @@
-{"version":3,"file":"notification-endpoints.d.ts","sourceRoot":"","sources":["../../api/notification-endpoints.ts"],"names":[],"mappings":"AAEA,OAAO,OAAO,MAAM,SAAS,CAAC;AAE9B,wBAAgB,sBAAsB,CAAC,GAAG,EAAE,OAAO,CAAC,WAAW,EAAE,UAAU,EAAE,GAAG,QAuI/E"}
+{"version":3,"file":"notification-endpoints.d.ts","sourceRoot":"","sources":["../../api/notification-endpoints.ts"],"names":[],"mappings":"AAEA,OAAO,OAAO,MAAM,SAAS,CAAC;AAE9B,wBAAgB,sBAAsB,CAAC,GAAG,EAAE,OAAO,CAAC,WAAW,EAAE,UAAU,EAAE,GAAG,QA8I/E"}

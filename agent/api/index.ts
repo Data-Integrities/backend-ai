@@ -36,6 +36,7 @@ import axios from 'axios';
 import path from 'path';
 import fs from 'fs';
 import { CapabilitiesManager } from './capabilities-manager';
+import { CapabilityLoader } from './capability-loader';
 import { ConfigLoader, LogManager } from '@proxmox-ai-control/shared';
 import { AgentAICommandProcessor } from './ai-command-processor';
 startupLog(1, 'All imports complete');
@@ -110,6 +111,9 @@ startupLog(3, `HUB_URL=${HUB_URL}`);
 startupLog(2, 'Initializing capabilities manager...');
 const capabilitiesManager = new CapabilitiesManager();
 startupLog(2, 'Capabilities manager initialized');
+
+const capabilityLoader = new CapabilityLoader();
+startupLog(2, 'Capability loader initialized');
 
 // Initialize AI command processor
 let aiProcessor: AgentAICommandProcessor | null = null;
@@ -333,8 +337,129 @@ app.post('/api/chat', async (req, res) => {
         const response = await aiProcessor.processNaturalLanguageCommand(command);
         console.log(`[CHAT] AI response received`);
         
+        // Extract and execute commands from AI response
+        let finalResponse = response;
+        
+        // Look for command patterns in the AI response
+        // Pattern 1: Commands in code blocks ```command```
+        const codeBlockPattern = /```\n?([^`]+)\n?```/g;
+        const codeBlockMatches = [...response.matchAll(codeBlockPattern)];
+        
+        // Pattern 2: Inline capability commands like "nginx list-forwarders"
+        const capabilityPattern = /(?:^|\n)\s*(nginx|cloudflare|dns)\s+([\w-]+)(?:\s|$)/gm;
+        const inlineMatches = [...response.matchAll(capabilityPattern)];
+        
+        // Combine and deduplicate commands
+        const commandsToExecute = new Set<string>();
+        
+        // Helper function to check if text looks like a shell command
+        const looksLikeCommand = (text: string): boolean => {
+            const trimmed = text.trim();
+            // Check for common command patterns
+            const commandPatterns = [
+                /^(ls|cd|pwd|echo|cat|grep|find|curl|wget|ssh|scp|chmod|chown|mkdir|rm|cp|mv|touch|tail|head|ps|kill|systemctl|service|nginx|certbot|openssl)\s/,
+                /^\/.+/, // Absolute paths
+                /^\.\//, // Relative paths
+                /\|/, // Pipes
+                /^[A-Z_]+=[^\s]+/, // Environment variables
+                /^(if|for|while|do|done|then|else|fi)\s/, // Shell constructs
+                /^printf\s/, // Printf commands
+                /^json=/, // Variable assignments
+            ];
+            
+            // Also check if it's NOT explanatory text
+            const explanatoryPatterns = [
+                /^(SSL|TLS|HTTPS?|The|This|It|When|Where|What|How|Why)/i,
+                /provides?\s/i,
+                /is\s+(a|an|the)/i,
+                /\s+(uses?|means?|allows?|enables?|helps?)\s/i,
+            ];
+            
+            const isCommand = commandPatterns.some(pattern => pattern.test(trimmed));
+            const isExplanation = explanatoryPatterns.some(pattern => pattern.test(trimmed));
+            
+            return isCommand && !isExplanation;
+        };
+        
+        // Add commands from code blocks
+        for (const match of codeBlockMatches) {
+            let command = match[1].trim();
+            if (command) {
+                // If first line is a language specifier, remove it
+                const lines = command.split('\n');
+                if (lines[0].match(/^(bash|sh|python|javascript|js|ts|typescript|json|yaml|yml)$/i)) {
+                    command = lines.slice(1).join('\n').trim();
+                }
+                
+                // Only add if it looks like an actual command
+                if (command && looksLikeCommand(command)) {
+                    commandsToExecute.add(command);
+                } else if (command) {
+                    console.log(`[CHAT] Skipping non-command text in code block: ${command.substring(0, 50)}...`);
+                }
+            }
+        }
+        
+        // Add inline commands
+        for (const match of inlineMatches) {
+            commandsToExecute.add(match[0].trim());
+        }
+        
+        const matches = Array.from(commandsToExecute);
+        
+        if (matches.length > 0) {
+            console.log(`[CHAT] Found ${matches.length} commands to execute`);
+            
+            // Execute each command found
+            for (const fullCommand of matches) {
+                console.log(`[CHAT] Executing command: ${fullCommand}`);
+                
+                try {
+                    // First check if this is a capability command
+                    if (capabilityLoader) {
+                        const capabilityResult = await capabilityLoader.handleCommand(fullCommand);
+                        if (capabilityResult) {
+                            console.log(`[CHAT] Executed capability command: ${fullCommand}`);
+                            // Format capability result
+                            if (typeof capabilityResult === 'string') {
+                                finalResponse += `\n\n**Command Output:**\n\`\`\`\n${capabilityResult}\n\`\`\``;
+                            } else {
+                                finalResponse += `\n\n**Command Output:**\n\`\`\`\n${JSON.stringify(capabilityResult, null, 2)}\n\`\`\``;
+                            }
+                            continue; // Skip to next command
+                        }
+                    }
+                    
+                    // Not a capability command, try parsing as shell command
+                    const parsedCommand = await parseCommand(fullCommand);
+                    const result = await executeCommand(parsedCommand, correlationId);
+                    
+                    // Append command output to response
+                    if (result.stdout || result.stderr) {
+                        const output = result.stdout || '';
+                        const error = result.stderr || '';
+                        if (output) {
+                            finalResponse += `\n\n**Command Output:**\n\`\`\`\n${output}\n\`\`\``;
+                        }
+                        if (error && !output) {
+                            finalResponse += `\n\n**Command Error:**\n${error}`;
+                        }
+                    } else if (result.success !== undefined && !result.success) {
+                        finalResponse += `\n\n**Command Error:**\n${result.error || 'Command failed'}`;
+                    }
+                } catch (error) {
+                    console.error(`[CHAT] Error executing command ${fullCommand}:`, error);
+                    finalResponse += `\n\n**Error executing ${fullCommand}:**\n${error instanceof Error ? error.message : String(error)}`;
+                }
+            }
+        }
+        
+        // Note: We previously thought stray HTML tags were in the AI response,
+        // but they're actually generated by marked.js during rendering.
+        // The real issue is truncated markdown tables that confuse the parser.
+        
         // Include tabId as first line if provided
-        const responseWithTabId = tabId ? `[TAB:${tabId}]\n${response}` : response;
+        const responseWithTabId = tabId ? `[TAB:${tabId}]\n${finalResponse}` : finalResponse;
         
         // Note: res.json() automatically handles JSON escaping of the response string
         // So newlines, tabs, etc. in the response will be properly escaped
@@ -780,6 +905,11 @@ try {
 const server = app.listen(PORT, '0.0.0.0', async () => {
     addMilestone('server_listening');
     startupLog(1, `Server listening on port ${PORT}`);
+    
+    // Load capabilities
+    await capabilityLoader.loadCapabilities();
+    console.log('Capabilities loaded');
+    
     console.log(`Enhanced HTTP Agent ${AGENT_ID} listening on port ${PORT}`);
     console.log(`Hub URL: ${HUB_URL}`);
     console.log('Features: Authentication, Service Discovery, Command Parsing, Event Notifications');

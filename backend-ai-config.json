@@ -1,17 +1,18 @@
 {
   "system": {
     "name": "Backend AI Infrastructure Control",
-    "version": "2.1.89",
+    "version": "2.1.64",
     "description": "Central configuration for Backend AI hub, agents, and managers"
   },
   "anthropic": {
-    "apiKey": "EV:U2FsdGVkX1/xXI39InQPs2Ee1rLbZYT9CjIPnxWwTP6n6KnVAohuk1yUxMzXl/UHh1eUQj4UCRiuHs6BU0ypJvq7Gb20D3qHbzEQKs7WR2P+MGc2jGmkkzOQvDN1q0fui//D/EN6VqP+THP9PcsrDR7VAwiN6Hx/OPRw6YjCzMI="
+    "apiKey": "EV:U2FsdGVkX1+lYv2GCr5tQwl8FNKMV53Pu5NvwSMkqJvWsrYWytzsojAJPkLOlBs57nxvHqfMGCIG+3Wy40t9fNgAtxjNMDDWUojyER+H8dYEM/jE9dmIGUSpoC9ZtVS5YbE6RIPQEtx/S86l5L7aUNfDoHv426E0vy9eN8GEXdE="
   },
   "hub": {
     "ip": "192.168.1.30",
     "port": 80,
     "name": "backend-ai-hub",
     "description": "Central command and control hub",
+    "accessUser": "root",
     "nodePath": "/usr/bin/node",
     "paths": {
       "installation": "/opt/backend-ai/hub"
@@ -86,15 +87,20 @@
       "systemType": "ubuntu",
       "accessUser": "root",
       "nodePath": "/usr/bin/node",
-      "aliases": ["nginx", "forwarder", "dns router", "web server"],
+      "aliases": [
+        "nginx",
+        "forwarder",
+        "dns router",
+        "web server"
+      ],
       "capabilities": {
         "nginx": true,
         "reverseProxy": true,
         "webServer": true
       },
       "versions": {
-        "agent": "",
-        "manager": ""
+        "agent": "2.1.64",
+        "manager": "2.1.64"
       }
     },
     {
@@ -105,15 +111,20 @@
       "systemType": "debian",
       "accessUser": "root",
       "nodePath": "/usr/bin/node",
-      "aliases": ["proxmox", "hypervisor", "vm host", "pve1"],
+      "aliases": [
+        "proxmox",
+        "hypervisor",
+        "vm host",
+        "pve1"
+      ],
       "capabilities": {
         "virtualization": true,
         "containers": true,
         "proxmox": true
       },
       "versions": {
-        "agent": "",
-        "manager": ""
+        "agent": "2.1.64",
+        "manager": "2.1.64"
       }
     },
     {
@@ -124,15 +135,20 @@
       "systemType": "debian",
       "accessUser": "root",
       "nodePath": "/usr/bin/node",
-      "aliases": ["proxmox", "hypervisor", "vm host", "pve2"],
+      "aliases": [
+        "proxmox",
+        "hypervisor",
+        "vm host",
+        "pve2"
+      ],
       "capabilities": {
         "virtualization": true,
         "containers": true,
         "proxmox": true
       },
       "versions": {
-        "agent": "",
-        "manager": ""
+        "agent": "2.1.64",
+        "manager": "2.1.64"
       }
     },
     {
@@ -143,15 +159,20 @@
       "systemType": "debian",
       "accessUser": "root",
       "nodePath": "/usr/bin/node",
-      "aliases": ["proxmox", "hypervisor", "vm host", "pve3"],
+      "aliases": [
+        "proxmox",
+        "hypervisor",
+        "vm host",
+        "pve3"
+      ],
       "capabilities": {
         "virtualization": true,
         "containers": true,
         "proxmox": true
       },
       "versions": {
-        "agent": "",
-        "manager": ""
+        "agent": "2.1.64",
+        "manager": "2.1.64"
       }
     },
     {
@@ -162,15 +183,20 @@
       "systemType": "unraid",
       "accessUser": "root",
       "nodePath": "/usr/local/bin/node",
-      "aliases": ["unraid", "nas", "storage", "file server"],
+      "aliases": [
+        "unraid",
+        "nas",
+        "storage",
+        "file server"
+      ],
       "capabilities": {
         "docker": true,
         "storage": true,
         "nas": true
       },
       "versions": {
-        "agent": "",
-        "manager": ""
+        "agent": "2.1.64",
+        "manager": "2.1.64"
       }
     }
   ]

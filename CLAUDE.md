@@ -1,3 +1,17 @@
+# ⚠️ CRITICAL WARNING ⚠️
+## DON'T EVER RESTORE FROM GITHUB WITHOUT ASKING FIRST
+
+Using `git checkout` or `git restore` commands will PERMANENTLY DELETE all uncommitted changes.
+Always ask the user before running any git commands that modify files.
+
+## NEVER USE SED FOR BATCH CHANGES
+
+`sed` commands that modify multiple files are extremely dangerous and have caused catastrophic data loss.
+**NEVER** use sed with `-i` flag or in combination with `find -exec` for batch operations.
+Use the Edit tool one file at a time instead.
+
+---
+
 # Backend AI Project Guidelines for Claude
 
 ## AUTOMATIC PROJECT DOCUMENTATION READING
